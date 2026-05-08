@@ -1,0 +1,10 @@
+name: vietnamese-legal-knowledge-graph
+description: Build a production-grade Neo4j knowledge graph for Vietnamese legal documents (Luật, Nghị định, Thông tư) with article-level hierarchy, cross-references, amendment chains, and effective text composition — powering a contract review and legal QA chatbot.
+status: proposed
+artifacts:
+  proposal:
+    status: pending
+  design:
+    status: pending
+  tasks:
+    status: pending
