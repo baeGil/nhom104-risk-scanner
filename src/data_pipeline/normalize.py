@@ -237,8 +237,6 @@ def main(
 ) -> None:
     """
     T0.1 main: Đọc metadata.parquet, normalize, xuất lookup JSON.
-
-    TODO: implement khi có metadata.parquet
     """
     import pandas as pd  # noqa: PLC0415
 

@@ -162,8 +162,6 @@ def main(
 ) -> None:
     """
     T0.2 main: Đọc metadata đã có lookup, khử trùng, xuất kết quả.
-
-    TODO: implement khi có metadata.parquet + lookup.json (từ T0.1)
     """
     import json
     import pandas as pd  # noqa: PLC0415

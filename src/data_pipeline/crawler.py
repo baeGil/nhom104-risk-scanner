@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 BASE_URL         = "https://thuvienphapluat.vn"
-SEARCH_URL_TPL   = BASE_URL + "/tim-van-ban.aspx?keyword={query}"
+SEARCH_URL_TPL   = BASE_URL + "/page/tim-van-ban.aspx?keyword={query}"
 DEFAULT_RATE_SEC = 1.5    # seconds between requests
 DEFAULT_TIMEOUT  = 15     # request timeout seconds
 CHECKPOINT_FILE  = "output/crawl_checkpoint.json"
@@ -58,13 +58,39 @@ def search_document(so_ky_hieu: str, session=None) -> Optional[str]:
     -------
     str | None
         URL trang chi tiết (vd: ".../van-ban/...html"), hoặc None nếu không tìm thấy.
-
-    TODO: Implement sau khi kiểm tra lại cấu trúc HTML search của thuvienphapluat.vn
     """
-    raise NotImplementedError(
-        "T0.3: implement search_document() — "
-        "cần kiểm tra lại cấu trúc search của thuvienphapluat.vn"
-    )
+
+    import requests
+    from bs4 import BeautifulSoup
+    from urllib.parse import quote
+
+    if session is None:
+        session = requests.Session()
+    
+    url = SEARCH_URL_TPL.format(query=quote(so_ky_hieu))
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    
+    try:
+        resp = session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        
+        result = soup.select_one('.nqTitle a')
+        if result:
+            # Handle both relative and absolute URLs
+            href = result.get('href')
+            if href.startswith('/'):
+                return BASE_URL + href
+            elif href.startswith('http'):
+                return href
+            else:
+                return BASE_URL + '/' + href
+    except Exception as e:
+        logger.warning(f"Error searching for {so_ky_hieu}: {e}")
+        
+    return None
 
 
 def extract_content_html(detail_url: str, session=None) -> Optional[str]:
@@ -78,13 +104,30 @@ def extract_content_html(detail_url: str, session=None) -> Optional[str]:
     -------
     str | None
         Raw HTML của phần nội dung, hoặc None nếu không tìm được.
-
-    TODO: Implement sau khi xác định selector CSS chính xác.
     """
-    raise NotImplementedError(
-        "T0.3: implement extract_content_html() — "
-        "cần xác định CSS selector cho content block"
-    )
+
+    import requests
+    from bs4 import BeautifulSoup
+
+    if session is None:
+        session = requests.Session()
+        
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    
+    try:
+        resp = session.get(detail_url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        
+        content_div = soup.select_one('div.content1') or soup.select_one('div#divContentDoc')
+        if content_div:
+            return str(content_div)
+    except Exception as e:
+        logger.warning(f"Error extracting content from {detail_url}: {e}")
+        
+    return None
 
 
 def validate_content(html: str) -> bool:
@@ -139,25 +182,26 @@ def crawl_batch(
 
         logger.info("Crawling: %s (%s)", doc_id, so_ky_hieu)
 
-        # TODO: Bỏ comment khi hàm search/extract hoàn thiện
-        # for attempt in range(max_retries):
-        #     try:
-        #         detail_url = search_document(so_ky_hieu)
-        #         if not detail_url:
-        #             results.append({"doc_id": doc_id, "status": "not_found"})
-        #             break
-        #         html = extract_content_html(detail_url)
-        #         if not html or not validate_content(html):
-        #             results.append({"doc_id": doc_id, "status": "invalid_content"})
-        #             break
-        #         results.append({"doc_id": doc_id, "raw_html": html, "status": "success"})
-        #         _save_checkpoint(checkpoint_path, doc_id)
-        #         break
-        #     except Exception as exc:
-        #         logger.warning("Attempt %d failed for %s: %s", attempt+1, doc_id, exc)
-        #         time.sleep(rate_limit_sec * 2)
-        # else:
-        #     results.append({"doc_id": doc_id, "status": "error", "detail": str(exc)})
+        session = __import__('requests').Session()
+        for attempt in range(max_retries):
+            try:
+                detail_url = search_document(so_ky_hieu, session=session)
+                if not detail_url:
+                    results.append({"doc_id": doc_id, "status": "not_found"})
+                    break
+                html = extract_content_html(detail_url, session=session)
+                if not html or not validate_content(html):
+                    results.append({"doc_id": doc_id, "status": "invalid_content"})
+                    break
+                results.append({"doc_id": doc_id, "raw_html": html, "status": "success"})
+                _save_checkpoint(checkpoint_path, doc_id)
+                break
+            except Exception as exc:
+                logger.warning("Attempt %d failed for %s: %s", attempt+1, doc_id, exc)
+                time.sleep(rate_limit_sec * 2)
+        else:
+            # Nếu vòng for kết thúc mà không gặp 'break' (tất cả retries đều lỗi)
+            results.append({"doc_id": doc_id, "status": "error", "detail": "All retries failed"})
 
         time.sleep(rate_limit_sec)
 
@@ -200,8 +244,6 @@ def main(
 ) -> None:
     """
     T0.3 main: Tìm docs thiếu content, crawl, merge vào parquet.
-
-    TODO: implement sau khi search/extract functions hoàn thiện.
     """
     import pandas as pd  # noqa: PLC0415
 
@@ -221,7 +263,23 @@ def main(
     results = crawl_batch(missing_docs, checkpoint_path=checkpoint_path)
 
     # Merge vào content parquet
-    # TODO: implement merge logic
+    if results:
+        success_results = [r for r in results if r.get("status") == "success"]
+        if success_results:
+            new_df = pd.DataFrame(success_results)[["doc_id", "raw_html"]]
+            
+            # Check if original content.parquet exists
+            if Path(content_path).exists():
+                merged_df = pd.concat([content_df, new_df], ignore_index=True)
+            else:
+                merged_df = new_df
+                
+            # Tạo thư mục và ghi ra file enriched parquet
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            merged_df.to_parquet(output_path, index=False)
+            logger.info("Merged %d new documents into %s", len(new_df), output_path)
+        else:
+            logger.info("No successful crawls to merge.")
     logger.info("T0.3 done — %d crawled", len(results))
 
 
