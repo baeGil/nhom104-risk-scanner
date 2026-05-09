@@ -52,9 +52,9 @@ RE_MUC = re.compile(
     re.UNICODE | re.IGNORECASE,
 )
 
-# Điều — Article: "Điều 5.", "Điều 10:", "điều 3 ", "Ðiều 1"
+# Điều — Article: "Điều 5.", "Điều 10:", "điều 3 ", "Ðiều 1", "Điều thứ 1"
 RE_DIEU = re.compile(
-    r"^[ĐĐð][iíìĩị]ều\s+(\d+)[.\s:]\s*(.*)?$",
+    r"^[ĐĐð][iíìĩị]ều\s+(?:thứ\s+)?(\d+)[.\s:]\s*(.*)?$",
     re.UNICODE | re.IGNORECASE,
 )
 
@@ -188,32 +188,167 @@ class LegalDocumentParser:
         TODO (T1.1): implement this method.
         Replace the NotImplementedError below with the state machine.
         """
+        from bs4 import BeautifulSoup
         result = ParseResult(doc_id=doc_id)
 
-        # ── Step 1: Parse HTML into text lines ──────────────────────────
-        # lines = _extract_lines(clean_html)   # TODO: implement
-        # TODO: use BeautifulSoup here
-
-        # ── Step 2: State machine ────────────────────────────────────────
-        # state = _ParserState(doc_id, loai_van_ban)
-        # for line in lines:
-        #     stripped = line.strip()
-        #     if not stripped:
-        #         continue
-        #     if _is_preamble(stripped):
-        #         continue
-        #     if _is_closing(stripped):
-        #         break
-        #     segment = state.process(stripped)
-        #     if segment:
-        #         result.segments.append(segment)
-        #
-        # result.article_count  = sum(1 for s in result.segments if s.hierarchy_type == HierarchyType.DIEU)
-        # result.clause_count   = sum(1 for s in result.segments if s.hierarchy_type == HierarchyType.KHOAN)
-        # result.chapter_count  = sum(1 for s in result.segments if s.hierarchy_type == HierarchyType.CHUONG)
-        # result.point_count    = sum(1 for s in result.segments if s.hierarchy_type == HierarchyType.DIEM)
-
-        raise NotImplementedError("T1.1: implement LegalDocumentParser.parse()")
+        soup = BeautifulSoup(clean_html, 'html.parser')
+        
+        # Find all block-level elements
+        elements = soup.find_all(['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+        
+        # Filter out elements that contain other block elements to avoid text duplication
+        block_tags = {'p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'}
+        leaf_elements = []
+        for el in elements:
+            has_block_child = any(child.name in block_tags for child in el.find_all(True))
+            if not has_block_child:
+                leaf_elements.append(el)
+        
+        current_phan: Optional[Segment] = None
+        current_chuong: Optional[Segment] = None
+        current_muc_title: Optional[str] = None
+        current_dieu: Optional[Segment] = None
+        current_khoan: Optional[Segment] = None
+        current_diem: Optional[Segment] = None
+        
+        for el in leaf_elements:
+            raw_html = str(el)
+            text = el.get_text(separator=' ', strip=True)
+            
+            if not text:
+                continue
+                
+            if _is_preamble(text):
+                continue
+                
+            # Chỉ dừng (break) khi đã có Điều (Article) được parse.
+            # Tránh lỗi nhận diện nhầm "CHỦ TỊCH" / "BỘ TRƯỞNG" ở phần tiêu đề đầu văn bản.
+            if result.article_count > 0 and _is_closing(text):
+                break
+                
+            # 1. Phần
+            if RE_PHAN.match(text) and "luật" in loai_van_ban.lower():
+                current_phan = Segment(doc_id=doc_id, hierarchy_type=HierarchyType.PHAN, index=1, text_content=raw_html, clean_text=text, title=text)
+                # Reset lower levels
+                current_chuong = None
+                current_muc_title = None
+                current_dieu = None
+                current_khoan = None
+                current_diem = None
+                continue
+                
+            # 2. Chương
+            m_chuong = RE_CHUONG.match(text)
+            if m_chuong:
+                roman = m_chuong.group(1)
+                title_text = m_chuong.group(2) or ""
+                result.chapter_count += 1
+                current_chuong = Segment(doc_id=doc_id, hierarchy_type=HierarchyType.CHUONG, index=result.chapter_count, text_content=raw_html, clean_text=text, roman_index=roman, title=title_text)
+                result.segments.append(current_chuong)
+                
+                # Reset lower levels
+                current_muc_title = None
+                current_dieu = None
+                current_khoan = None
+                current_diem = None
+                continue
+                
+            # 3. Mục
+            m_muc = RE_MUC.match(text)
+            if m_muc:
+                current_muc_title = text
+                # Reset lower levels
+                current_dieu = None
+                current_khoan = None
+                current_diem = None
+                continue
+                
+            # 4. Điều
+            m_dieu = RE_DIEU.match(text)
+            if m_dieu:
+                dieu_idx = int(m_dieu.group(1))
+                title_text = m_dieu.group(2) or ""
+                uid = build_uid(doc_id, HierarchyType.DIEU, dieu_idx=dieu_idx)
+                
+                parent_uid = None
+                if current_chuong:
+                    # Chapter uid is not really used for cross-reference, but we use index as id
+                    parent_uid = build_uid(doc_id, HierarchyType.CHUONG, dieu_idx=current_chuong.index)
+                    
+                path = f"Điều {dieu_idx}"
+                if current_chuong:
+                    path = f"Chương {current_chuong.roman_index} / {path}"
+                
+                current_dieu = Segment(
+                    doc_id=doc_id,
+                    hierarchy_type=HierarchyType.DIEU,
+                    index=dieu_idx,
+                    path=path,
+                    text_content=raw_html,
+                    clean_text=text,
+                    parent_uid=parent_uid,
+                    uid=uid,
+                    title=title_text,
+                    section=current_muc_title
+                )
+                result.segments.append(current_dieu)
+                result.article_count += 1
+                
+                # Reset lower levels
+                current_khoan = None
+                current_diem = None
+                continue
+                
+            # 5. Khoản
+            m_khoan = RE_KHOAN.match(text)
+            if m_khoan and current_dieu:
+                khoan_idx = int(m_khoan.group(1))
+                uid = build_uid(doc_id, HierarchyType.KHOAN, dieu_idx=current_dieu.index, khoan_idx=khoan_idx)
+                
+                current_khoan = Segment(
+                    doc_id=doc_id,
+                    hierarchy_type=HierarchyType.KHOAN,
+                    index=khoan_idx,
+                    path=f"{current_dieu.path} / Khoản {khoan_idx}",
+                    text_content=raw_html,
+                    clean_text=text,
+                    parent_uid=current_dieu.uid,
+                    uid=uid
+                )
+                result.segments.append(current_khoan)
+                result.clause_count += 1
+                
+                # Reset lower levels
+                current_diem = None
+                continue
+                
+            # 6. Điểm
+            m_diem = RE_DIEM.match(text) or RE_DIEM_NHO.match(text)
+            if m_diem and current_khoan:
+                letter = m_diem.group(1)
+                uid = build_uid(doc_id, HierarchyType.DIEM, dieu_idx=current_dieu.index, khoan_idx=current_khoan.index, diem_letter=letter)
+                
+                current_diem = Segment(
+                    doc_id=doc_id,
+                    hierarchy_type=HierarchyType.DIEM,
+                    index=0, 
+                    path=f"{current_khoan.path} / Điểm {letter}",
+                    text_content=raw_html,
+                    clean_text=text,
+                    parent_uid=current_khoan.uid,
+                    uid=uid
+                )
+                result.segments.append(current_diem)
+                result.point_count += 1
+                continue
+                
+            # Content
+            active_node = current_diem or current_khoan or current_dieu or current_chuong or current_phan
+            if active_node:
+                active_node.text_content += f"\n{raw_html}"
+                active_node.clean_text += f"\n{text}"
+                
+        return result
 
     def parse_batch(
         self,
