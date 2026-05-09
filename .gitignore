@@ -2,3 +2,15 @@
 .opencode/
 data/
 output/
+
+# cache 
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# pytest 
+.pytest_cache/
+
+# test 
+tests/
