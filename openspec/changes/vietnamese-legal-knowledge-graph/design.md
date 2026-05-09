@@ -266,9 +266,65 @@ Compare composed result against 35 VB hợp nhất documents (ground truth). Aut
 
 ## Application Layer
 
+### Contract Parser (T4.1) — Design Decision
+
+**Decision**: Use [MinerU](https://github.com/opendatalab/MinerU) (Apache 2.0) instead of PyMuPDF + python-docx + Tesseract.
+
+**Rationale**:
+- Single library handles PDF, DOCX, TXT → Markdown
+- Built-in OCR with Vietnamese support (109 languages)
+- Auto-detects scanned vs text-based PDFs
+- Auto-removes headers, footers, page numbers
+- Preserves document structure (headings, tables as HTML)
+- Apache 2.0 license (commercial-friendly)
+- Active development (62k+ stars, v3.1.0)
+
+**Pipeline**:
+```
+Input: PDF/DOCX/TXT
+     ↓
+┌──────────────────────────┐
+│ MinerU                   │
+│ → Markdown output        │
+│ → Auto OCR (scanned)     │
+│ → Remove header/footer   │
+└──────────────────────────┘
+     ↓
+┌──────────────────────────┐
+│ PII Detection/Redaction  │
+│ - Regex patterns         │
+│ - Vietnamese PII types   │
+└──────────────────────────┘
+     ↓
+Output: Contract {
+  id: UUID,
+  raw_text: str,           # Markdown from MinerU
+  redacted_text: str,      # PII redacted
+  source_format: str,      # "pdf" | "docx" | "txt"
+  upload_date: date,
+  pii_map: dict            # PII value → placeholder mapping
+}
+```
+
+**PII Types Detected** (Vietnamese contracts):
+| Type | Pattern | Example |
+|------|---------|---------|
+| CCCD/CMND | 9-12 digits | `079087654321` |
+| Mã số thuế | 10-13 digits | `0123456789` |
+| Số điện thoại | +84/0 prefix | `0901234567` |
+| Email | Standard email | `name@company.vn` |
+| Số tài khoản | 10-16 digits (with context) | `1234567890123` |
+| Địa chỉ | Vietnamese address keywords | `số 123 đường ABC, quận XYZ` |
+| Họ tên | Context-based (after "Ông/Bà/Công ty") | `Nguyễn Văn A` |
+
+**PII Redaction Strategy**:
+- Replace with placeholders: `[REDACTED_CCCD]`, `[REDACTED_PHONE]`, etc.
+- Keep `pii_map` for authorized access (reversible if needed)
+- Store both `raw_text` (full) and `redacted_text` (safe for LLM processing)
+
 ### Contract Review Pipeline
 
-1. **Contract Input** (PDF/Word/TXT) → Parser → Extract clauses → LLM extraction (clause_type, parties, obligations)
+1. **Contract Input** (PDF/Word/TXT) → MinerU Parser → PII Redaction → Extract clauses → LLM extraction (clause_type, parties, obligations)
 
 2. **Legal Provision Matching** (per clause):
    - Embed clause text using vietlegal-harrier-0.6b
@@ -282,10 +338,79 @@ Compare composed result against 35 VB hợp nhất documents (ground truth). Aut
 
 4. **Citation Verification**: every citation verified against Neo4j graph
 
+### Unified LLM Gateway
+
+**Design Decision**: Single LLM layer serves both Contract Review and Legal QA pipelines. Users interact naturally without switching modes — the system detects domain (QA vs Contract Review vs Mixed) and routes accordingly.
+
+**Provider**: GPT 5.4 mini (configurable model + API key). Mock provider for development/testing.
+
+**Conversation State**: System maintains conversation context to handle follow-up questions naturally:
+```
+User: "Review hợp đồng này"          → CONTRACT_REVIEW
+User: "Tại sao điều khoản phạt sai?" → CONTRACT_QA (về kết quả review)
+User: "Luật đó còn hiệu lực không?"  → QA (validity)
+```
+
+### Intent Analysis (T5.1) — Expanded Taxonomy
+
+**Hierarchical Model**:
+
+```
+Level 1: Domain (System action)
+├── QA                    → Hỏi về pháp luật
+├── CONTRACT_REVIEW       → Review hợp đồng (có file đính kèm)
+├── CONTRACT_QA           → Hỏi VỀ kết quả review hợp đồng
+├── EXPLAIN               → Giải thích, làm rõ
+└── CHITCHAT              → Không liên quan → fallback
+
+Level 2: Intent (QA domain only)
+├── LOOKUP                → Tra cứu văn bản/điều khoản
+│   ├── granularity: "chapter" | "article" | "clause" | "point" | "document"
+│   └── extracted: document_type, document_name, article_number, clause_number, point_label, so_ky_hieu
+│
+├── TOPIC                 → Hỏi về chủ đề
+│   └── aspect: "regulations" | "procedures" | "penalties"
+│
+├── VALIDITY              → Hỏi hiệu lực
+│   └── target: "document" | "article"
+│
+├── COMPARISON            → So sánh
+│   ├── documents: [{document_type, document_name, year}, ...]
+│   └── aspect: "content" | "validity" | "penalties"
+│
+├── CHECKLIST             → Hỏi danh sách yêu cầu
+│   └── target: "contract_requirements" | "procedures"
+│
+├── NUMERIC               → Hỏi con số/giới hạn
+│   └── metric: "penalty" | "threshold" | "deadline"
+│
+├── SCENARIO              → Hỏi tình huống cụ thể
+│   └── context: {facts...}
+│
+└── SEARCH                → Tìm kiếm/tổng hợp
+    └── scope: "documents" | "articles" | "topics"
+```
+
+**Multi-Intent Decomposition**: Complex queries are decomposed into sub-queries for parallel processing:
+```
+User: "Điều 17 Luật DN 2020 còn hiệu lực không, và khác gì Luật 2014?"
+→ Sub-queries:
+   1. LOOKUP(article=17, law="LT-068-2020") → direct_lookup
+   2. VALIDITY(law="LT-068-2020") → validity_check
+   3. COMPARISON(law1="LT-068-2020", law2="LT-059-2014") → comparison
+```
+
+**Confidence Handling**:
+- confidence >= 0.7 → Proceed
+- 0.4 <= confidence < 0.7 → Ask clarification
+- confidence < 0.4 → Fallback to general QA or "Tôi chưa hiểu rõ"
+
+**so_ky_hieu Resolution**: Resolved in T5.1 using lookup table from T0.1. T5.2 needs doc_id for direct lookup, so resolution cannot be delayed.
+
 ### Legal QA Pipeline
 
-1. **Intent Analysis** (LLM): extract topic, document type, article reference, time reference
-2. **Retrieval**: article reference → direct graph lookup; topic query → vector search + graph traversal
+1. **Intent Analysis** (LLM): Classify domain + intent, decompose multi-intent queries into sub-queries, extract entities (document_type, article/clause/point numbers, so_ky_hieu, topic, time_reference)
+2. **Retrieval**: article reference → direct graph lookup; topic query → vector search + graph traversal; comparison → parallel retrieval + diff
 3. **Answer Generation** (LLM): question + retrieved provisions + effective text + amendment history
 4. **Citation Verification**: same as contract review
 
@@ -302,11 +427,11 @@ Embed at Article level (full text including all clauses). Clause/Point-level ret
 | Graph Database | Neo4j (self-hosted) |
 | Embedding Model | mainguyen9/vietlegal-harrier-0.6b |
 | Parsing | Python (BeautifulSoup + regex) |
-| LLM (future) | GPT-4o-mini / Claude Haiku |
+| LLM Provider | GPT 5.4 mini (configurable, with Mock for dev) | Unified for intent analysis, clause extraction, compliance, answer generation |
 | Web Framework | Python (FastAPI) |
 | Data Processing | Python (pandas, pyarrow) |
 | Vector Search | Neo4j vector index |
-| Contract Parsing | PyMuPDF + Tesseract OCR + python-docx |
+| Contract Parsing | MinerU (Apache 2.0) + PII redaction layer |
 | Crawler | requests + BeautifulSoup |
 
 ## Data Scale Estimates
