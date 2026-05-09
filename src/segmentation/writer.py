@@ -106,76 +106,89 @@ class SegmentWriter:
         count = 0
         for i in range(0, len(segments), self._batch_size):
             batch = segments[i : i + self._batch_size]
+            batch_data = []
             for seg in batch:
-                try:
-                    session.execute_write(fn, seg)
-                    count += 1
-                except Exception as exc:
-                    logger.warning("Failed to write segment %s: %s", seg.uid, exc)
+                d = {
+                    "uid": seg.uid,
+                    "doc_id": seg.doc_id,
+                    "index": seg.index,
+                    "roman": seg.roman_index,
+                    "title": seg.title,
+                    "text_content": seg.text_content,
+                    "clean_text": seg.clean_text,
+                    "parent_uid": seg.parent_uid,
+                    "section": seg.section,
+                    "path": seg.path
+                }
+                if seg.hierarchy_type == HierarchyType.DIEM:
+                    d["letter"] = seg.uid.split("_diem_")[-1] if seg.uid else ""
+                batch_data.append(d)
+                
+            try:
+                session.execute_write(fn, batch_data)
+                count += len(batch)
+            except Exception as exc:
+                logger.warning("Failed to write batch: %s", exc)
         return count
 
     @staticmethod
-    def _merge_chapter(tx, seg: Segment) -> None:
+    def _merge_chapter(tx, batch_data: list[dict]) -> None:
+        query = """
+        UNWIND $batch AS row
+        MATCH (d:Document {id: row.doc_id})
+        MERGE (c:Chapter {doc_id: row.doc_id, index: row.index})
+        SET c.roman  = row.roman,
+            c.title  = row.title
+        MERGE (d)-[:HAS_CHAPTER {order: row.index}]->(c)
         """
-        TODO (T1.5):
-        Cypher template:
-            MATCH (d:Document {id: $doc_id})
-            MERGE (c:Chapter {doc_id: $doc_id, index: $index})
-            SET c.roman  = $roman,
-                c.title  = $title
-            MERGE (d)-[:HAS_CHAPTER {order: $index}]->(c)
-        """
-        raise NotImplementedError("T1.5: implement _merge_chapter")
+        tx.run(query, batch=batch_data)
 
     @staticmethod
-    def _merge_article(tx, seg: Segment) -> None:
+    def _merge_article(tx, batch_data: list[dict]) -> None:
+        query = """
+        UNWIND $batch AS row
+        MATCH (d:Document {id: row.doc_id})
+        MERGE (a:Article {uid: row.uid})
+        SET a.index        = row.index,
+            a.title        = row.title,
+            a.section      = row.section,
+            a.text_content = row.text_content,
+            a.clean_text   = row.clean_text,
+            a.is_current   = true,
+            a.effective_date = null
+            
+        FOREACH (_ IN CASE WHEN row.parent_uid IS NOT NULL THEN [1] ELSE [] END |
+            MERGE (ch:Chapter {doc_id: row.doc_id, index: toInteger(split(row.parent_uid, "_")[3])})
+            MERGE (ch)-[:HAS_ARTICLE {order: row.index}]->(a)
+        )
+        FOREACH (_ IN CASE WHEN row.parent_uid IS NULL THEN [1] ELSE [] END |
+            MERGE (d)-[:HAS_ARTICLE {order: row.index}]->(a)
+        )
         """
-        TODO (T1.5):
-        Cypher template:
-            MATCH (d:Document {id: $doc_id})
-            OPTIONAL MATCH (ch:Chapter {doc_id: $doc_id, index: $chapter_index})
-            MERGE (a:Article {uid: $uid})
-            SET a.index        = $index,
-                a.title        = $title,
-                a.text_content = $text_content,
-                a.clean_text   = $clean_text,
-                a.is_current   = true,
-                a.effective_date = null
-            // Link to chapter if exists, else directly to document
-            WITH a, d, ch
-            FOREACH (_ IN CASE WHEN ch IS NOT NULL THEN [1] ELSE [] END |
-                MERGE (ch)-[:HAS_ARTICLE {order: $index}]->(a)
-            )
-            FOREACH (_ IN CASE WHEN ch IS NULL THEN [1] ELSE [] END |
-                MERGE (d)-[:HAS_ARTICLE {order: $index}]->(a)
-            )
-        """
-        raise NotImplementedError("T1.5: implement _merge_article")
+        tx.run(query, batch=batch_data)
 
     @staticmethod
-    def _merge_clause(tx, seg: Segment) -> None:
+    def _merge_clause(tx, batch_data: list[dict]) -> None:
+        query = """
+        UNWIND $batch AS row
+        MATCH (a:Article {uid: row.parent_uid})
+        MERGE (c:Clause {uid: row.uid})
+        SET c.index        = row.index,
+            c.text_content = row.text_content,
+            c.clean_text   = row.clean_text
+        MERGE (a)-[:HAS_CLAUSE {order: row.index}]->(c)
         """
-        TODO (T1.5):
-        Cypher template:
-            MATCH (a:Article {uid: $parent_uid})
-            MERGE (c:Clause {uid: $uid})
-            SET c.index        = $index,
-                c.text_content = $text_content,
-                c.clean_text   = $clean_text
-            MERGE (a)-[:HAS_CLAUSE {order: $index}]->(c)
-        """
-        raise NotImplementedError("T1.5: implement _merge_clause")
+        tx.run(query, batch=batch_data)
 
     @staticmethod
-    def _merge_point(tx, seg: Segment) -> None:
+    def _merge_point(tx, batch_data: list[dict]) -> None:
+        query = """
+        UNWIND $batch AS row
+        MATCH (c:Clause {uid: row.parent_uid})
+        MERGE (p:Point {uid: row.uid})
+        SET p.letter       = row.letter,
+            p.text_content = row.text_content,
+            p.clean_text   = row.clean_text
+        MERGE (c)-[:HAS_POINT]->(p)
         """
-        TODO (T1.5):
-        Cypher template:
-            MATCH (c:Clause {uid: $parent_uid})
-            MERGE (p:Point {uid: $uid})
-            SET p.letter       = $letter,
-                p.text_content = $text_content,
-                p.clean_text   = $clean_text
-            MERGE (c)-[:HAS_POINT {order: $order}]->(p)
-        """
-        raise NotImplementedError("T1.5: implement _merge_point")
+        tx.run(query, batch=batch_data)

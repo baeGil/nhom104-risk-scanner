@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 EMBED_BATCH_SIZE = 512    # articles per embedding API call
 NEO4J_BATCH_SIZE = 1_000  # articles per Neo4j write transaction
 
-EMBED_DIM = 768           # harrier-0.6b output dimension
+EMBED_DIM = 1024          # harrier-0.6b (updated) output dimension
 VECTOR_INDEX_NAME = "article_embeddings"  # used by Người C's queries
 
 
@@ -82,41 +82,85 @@ class ArticleEmbedder:
         Returns
         -------
         dict with keys: total, embedded, errors
-
-        TODO (T1.6): implement this method.
-
-        Suggested implementation:
-        1. Query Neo4j: MATCH (a:Article) WHERE a.embedding IS NULL RETURN a.uid, a.clean_text
-        2. Batch texts with self._embed_batch size
-        3. Call self._call_embed_service(texts)
-        4. Write embeddings back: MATCH (a:Article {uid: $uid}) SET a.embedding = $embedding
-        5. After all done, call self._ensure_vector_index()
         """
-        raise NotImplementedError("T1.6: implement embed_all()")
+
+        stats = {"total": 0, "embedded": 0, "errors": 0}
+        
+        where_clause = "WHERE a.embedding IS NULL" if not overwrite else ""
+        query = f"""
+        MATCH (a:Article) {where_clause}
+        OPTIONAL MATCH (d:Document)-[:HAS_ARTICLE]->(a)
+        OPTIONAL MATCH (d2:Document)-[:HAS_CHAPTER]->(ch:Chapter)-[:HAS_ARTICLE]->(a)
+        WITH a, coalesce(d.title, d2.title, "Văn bản") AS doc_title, coalesce(ch.title, "") AS ch_title
+        RETURN a.uid AS uid,
+               doc_title + " - " + ch_title + " - " + coalesce(a.title, "") + " - " + coalesce(a.clean_text, "") AS rich_text
+        """
+        
+        with self._driver.session() as session:
+            records = session.run(query).data()
+            
+        stats["total"] = len(records)
+        
+        for i in range(0, len(records), self._embed_batch):
+            batch = records[i : i + self._embed_batch]
+            uids = [r["uid"] for r in batch]
+            texts = [r["rich_text"] for r in batch]
+            
+            try:
+                embeddings = self._call_embed_service(texts)
+                update_query = """
+                UNWIND $batch AS row
+                MATCH (a:Article {uid: row.uid})
+                SET a.embedding = row.embedding
+                """
+                batch_data = [{"uid": uid, "embedding": emb} for uid, emb in zip(uids, embeddings)]
+                with self._driver.session() as session:
+                    session.run(update_query, batch=batch_data)
+                stats["embedded"] += len(batch)
+            except Exception as exc:
+                logger.error("Failed to embed batch: %s", exc)
+                stats["errors"] += len(batch)
+                
+        try:
+            self._ensure_vector_index()
+        except Exception as exc:
+            logger.error("Failed to ensure vector index: %s", exc)
+            
+        return stats
 
     def embed_article(self, uid: str, text: str) -> Optional[list[float]]:
         """
         Embed a single article and write to Neo4j. Returns the embedding vector.
         Useful for incremental updates or testing.
-
-        TODO (T1.6): implement.
         """
-        raise NotImplementedError("T1.6: implement embed_article()")
+
+        try:
+            emb = self._call_embed_service([text])[0]
+            query = "MATCH (a:Article {uid: $uid}) SET a.embedding = $embedding"
+            with self._driver.session() as session:
+                session.run(query, uid=uid, embedding=emb)
+            return emb
+        except Exception as exc:
+            logger.error("Failed to embed article %s: %s", uid, exc)
+            return None
 
     def verify_embeddings(self) -> dict[str, int]:
         """
         Check that all Article nodes have a 768-dim embedding.
 
         Returns: {"total_articles": N, "with_embedding": N, "missing": N, "wrong_dim": N}
-
-        TODO (T1.6): implement using Cypher:
-            MATCH (a:Article)
-            RETURN
-              count(a) AS total,
-              count(a.embedding) AS with_embedding,
-              count(CASE WHEN size(a.embedding) <> 768 THEN 1 END) AS wrong_dim
         """
-        raise NotImplementedError("T1.6: implement verify_embeddings()")
+
+        query = f"""
+        MATCH (a:Article)
+        RETURN
+          count(a) AS total_articles,
+          count(a.embedding) AS with_embedding,
+          count(CASE WHEN size(a.embedding) <> {EMBED_DIM} THEN 1 END) AS wrong_dim
+        """
+        with self._driver.session() as session:
+            res = session.run(query).single()
+            return dict(res) if res else {}
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -125,14 +169,18 @@ class ArticleEmbedder:
     def _call_embed_service(self, texts: list[str]) -> list[list[float]]:
         """
         Call Người A's embedding API.
-
-        TODO (T1.6): implement.
-        Use requests.post(self._url + "/embed", json={"texts": texts})
-        Validate response: len(embeddings) == len(texts), len(embeddings[0]) == 768
-
-        Raises: RuntimeError if service returns wrong shape.
         """
-        raise NotImplementedError("T1.6: implement _call_embed_service()")
+
+        import requests
+        resp = requests.post(self._url + "/embed", json={"texts": texts})
+        resp.raise_for_status()
+        data = resp.json()
+        embeddings = data.get("embeddings", [])
+        if len(embeddings) != len(texts):
+            raise RuntimeError(f"Expected {len(texts)} embeddings, got {len(embeddings)}")
+        if embeddings and len(embeddings[0]) != EMBED_DIM:
+            raise RuntimeError(f"Expected {EMBED_DIM} dims, got {len(embeddings[0])}")
+        return embeddings
 
     def _ensure_vector_index(self) -> None:
         """
@@ -146,7 +194,15 @@ class ArticleEmbedder:
               `vector.dimensions`: 768,
               `vector.similarity_function`: 'cosine'
             }}
-
-        TODO (T1.6): implement.
         """
-        raise NotImplementedError("T1.6: implement _ensure_vector_index()")
+
+        query = f"""
+        CREATE VECTOR INDEX {VECTOR_INDEX_NAME} IF NOT EXISTS
+        FOR (a:Article) ON (a.embedding)
+        OPTIONS {{indexConfig: {{
+          `vector.dimensions`: {EMBED_DIM},
+          `vector.similarity_function`: 'cosine'
+        }}}}
+        """
+        with self._driver.session() as session:
+            session.run(query)
