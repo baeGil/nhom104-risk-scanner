@@ -2,25 +2,25 @@
 
 ## Phase 0: Data Cleanup & Normalization
 
-- [x] T0.1: **Normalize so_ky_hieu** — Parse raw so_ky_hieu into structured components (type, number, year, issuer) for all 5 core document types. Generate normalized form (e.g., "ND-046-2014"). Handle 25-30% non-standard formats with pattern matching. Build lookup table mapping normalized so_ky_hieu → doc_id. — *Spec: data-cleanup-and-normalization*
+- [ ] T0.1: **Normalize so_ky_hieu** — Parse raw so_ky_hieu into structured components (type, number, year, issuer) for all 5 core document types. Generate normalized form (e.g., "ND-046-2014"). Handle 25-30% non-standard formats with pattern matching. Build lookup table mapping normalized so_ky_hieu → doc_id. — *Spec: data-cleanup-and-normalization*
 
-- [x] T0.2: **Deduplicate documents** — Identify 1,273 exact duplicates (same so_ky_hieu + same loai_van_ban). Keep version with most content bytes, merge metadata preferring non-null fields. Log all merge decisions with before/after record IDs. — *Spec: data-cleanup-and-normalization*
+- [ ] T0.2: **Deduplicate documents** — Identify 1,273 exact duplicates (same so_ky_hieu + same loai_van_ban). Keep version with most content bytes, merge metadata preferring non-null fields. Log all merge decisions with before/after record IDs. — *Spec: data-cleanup-and-normalization*
 
-- [x] T0.3: **Crawl missing content** — *Note: Crawler created but thuvienphapluat.vn search structure may have changed. Needs refinement. 2,636 docs still missing content.* — For each of 2,637 core documents missing from content.parquet, crawl HTML from thuvienphapluat.vn using so_ky_hieu as search key. Extract content HTML from detail page, insert with matching doc_id, preserve all metadata fields. Target: ≥95% content coverage for effective core docs. — *Spec: data-cleanup-and-normalization*
+- [ ] T0.3: **Crawl missing content** — *Note: Crawler created but thuvienphapluat.vn search structure may have changed. Needs refinement. 2,636 docs still missing content.* — For each of 2,637 core documents missing from content.parquet, crawl HTML from thuvienphapluat.vn using so_ky_hieu as search key. Extract content HTML from detail page, insert with matching doc_id, preserve all metadata fields. Target: ≥95% content coverage for effective core docs. — *Spec: data-cleanup-and-normalization*
 
-- [x] T0.4: **Clean HTML pipeline** — Strip wrapper tables, remove `<font>` tags, normalize `<p>` formatting, preserve `<b>`/`<strong>` for hierarchy detection, preserve `<i>`/`<em>` for definitions. Store both raw_html and clean_html columns. — *Spec: data-cleanup-and-normalization*
+- [ ] T0.4: **Clean HTML pipeline** — Strip wrapper tables, remove `<font>` tags, normalize `<p>` formatting, preserve `<b>`/`<strong>` for hierarchy detection, preserve `<i>`/`<em>` for definitions. Store both raw_html and clean_html columns. — *Spec: data-cleanup-and-normalization*
 
-- [x] T0.5: **Build so_ky_hieu lookup with fuzzy matching** — *Completed as part of T0.1. Lookup table saved to output/so_ky_hieu_lookup.json* — Create normalized lookup table with fuzzy match capability (Levenshtein ≤ 2, year + type + title substring fallback). Include disambiguation for 1,273 duplicate entries. — *Depends on: T0.1* — *Spec: data-cleanup-and-normalization*
+- [ ] T0.5: **Build so_ky_hieu lookup with fuzzy matching** — *Completed as part of T0.1. Lookup table saved to output/so_ky_hieu_lookup.json* — Create normalized lookup table with fuzzy match capability (Levenshtein ≤ 2, year + type + title substring fallback). Include disambiguation for 1,273 duplicate entries. — *Depends on: T0.1* — *Spec: data-cleanup-and-normalization*
 
 ## Phase 1: Segmentation
 
-- [x] T1.1: **Implement hierarchical parser** — State machine processing Chương → Điều → Khoản → Điểm detection with counter reset rules. Handle preamble skip ("Căn cứ..."), table content attachment, `<b>`/`<strong>` format variants. Output: segments list with (doc_id, hierarchy_type, index, path, text_content, clean_text, parent_uid). — *Spec: segmentation*
+- [ ] T1.1: **Implement hierarchical parser** — State machine processing Chương → Điều → Khoản → Điểm detection with counter reset rules. Handle preamble skip ("Căn cứ..."), table content attachment, `<b>`/`<strong>` format variants. Output: segments list with (doc_id, hierarchy_type, index, path, text_content, clean_text, parent_uid). — *Spec: segmentation*
 
-- [x] T1.2: **Implement confidence scoring** — *Completed as part of T1.1* — Per-document confidence: High (≥0.9): ≥80% expected Điều found. Medium (0.6-0.9): some misalignment. Low (<0.6): poor structure. Log distribution and failure indicators. — *Spec: segmentation*
+- [ ] T1.2: **Implement confidence scoring** — *Completed as part of T1.1* — Per-document confidence: High (≥0.9): ≥80% expected Điều found. Medium (0.6-0.9): some misalignment. Low (<0.6): poor structure. Log distribution and failure indicators. — *Spec: segmentation*
 
-- [x] T1.3: **Parse all effective core documents** — *Completed as part of T1.1. 16,091 effective docs parsed into 104,962 segments* — Run parser on 12,921 effective core docs. Generate segments for each. Target: ≥80% High confidence, ≤5% Low confidence. Process in order: Luật → ND → TT → TTLT. — *Depends on: T0.4, T1.1, T1.2* — *Spec: segmentation*
+- [ ] T1.3: **Parse all effective core documents** — *Completed as part of T1.1. 16,091 effective docs parsed into 104,962 segments* — Run parser on 12,921 effective core docs. Generate segments for each. Target: ≥80% High confidence, ≤5% Low confidence. Process in order: Luật → ND → TT → TTLT. — *Depends on: T0.4, T1.1, T1.2* — *Spec: segmentation*
 
-- [x] T1.4: **Set up Neo4j schema** — *Schema Cypher saved to output/neo4j_schema.cypher. Run in Neo4j Browser to create constraints and indexes.* — Install Neo4j, create node labels (Document, Chapter, Article, Clause, Point, EffectiveArticle), relationship types, property types. Create uniqueness constraints on Document.id and Article.uid. Create indexes (so_ky_hieu, loai_van_ban, uid). — *Spec: segmentation*
+- [ ] T1.4: **Set up Neo4j schema** — *Schema Cypher saved to output/neo4j_schema.cypher. Run in Neo4j Browser to create constraints and indexes.* — Install Neo4j, create node labels (Document, Chapter, Article, Clause, Point, EffectiveArticle), relationship types, property types. Create uniqueness constraints on Document.id and Article.uid. Create indexes (so_ky_hieu, loai_van_ban, uid). — *Spec: segmentation*
 
 - [ ] T1.5: **Batch ingest segments into Neo4j** — MERGE operations for Document → Chapter → Article → Clause → Point hierarchy. Create HAS_CHAPTER, HAS_ARTICLE, HAS_CLAUSE, HAS_POINT relationships with order property. Batch size: 5,000 nodes per transaction. Target: ~900K nodes. — *Depends on: T1.3, T1.4* — *Spec: segmentation*
 
