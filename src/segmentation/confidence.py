@@ -48,32 +48,44 @@ class ConfidenceScorer:
         expected_article_count: Optional[int] = None,
         bold_heading_count: Optional[int] = None,
     ) -> ParseResult:
-        """
-        Compute and assign confidence score to a ParseResult.
+        if result.article_count == 0 and result.chapter_count == 0:
+            result.confidence_score = 0.0
+            result.confidence_level = ConfidenceLevel.LOW
+            result.confidence_notes.append("No structural elements found.")
+            return result
 
-        Mutates result.confidence_score, .confidence_level, .confidence_notes in place
-        and returns the same object.
-
-        Parameters
-        ----------
-        result : ParseResult
-            Output from LegalDocumentParser.parse().
-        expected_article_count : int, optional
-            Ground truth number of Điều expected. Obtained from:
-              - document metadata cross-references
-              - title patterns ("gồm X điều")
-              If None, article ratio factor is skipped.
-        bold_heading_count : int, optional
-            Number of <b>/<strong> tags detected in clean_html.
-            Passed through from parser context. Used for formatting factor.
-
-        Returns
-        -------
-        ParseResult  (same object, mutated)
-
-        TODO (T1.2): implement this method.
-        """
-        raise NotImplementedError("T1.2: implement ConfidenceScorer.score()")
+        # 1. Article Ratio
+        score_ratio, note_ratio = self._article_ratio_factor(result.article_count, expected_article_count)
+        result.confidence_notes.append(note_ratio)
+        
+        # 2. Clause Presence
+        score_clause, note_clause = self._clause_presence_factor(result)
+        result.confidence_notes.append(note_clause)
+        
+        # 3. Formatting
+        score_format = 1.0
+        if bold_heading_count is not None and result.article_count > 0:
+            format_ratio = min(bold_heading_count / result.article_count, 1.0)
+            score_format = format_ratio
+            result.confidence_notes.append(f"formatting ratio {format_ratio:.0%}")
+        else:
+            result.confidence_notes.append("formatting unknown - assumed 100%")
+            
+        # 4. Hierarchy Completeness
+        score_hierarchy, note_hierarchy = self._hierarchy_completeness_factor(result)
+        result.confidence_notes.append(note_hierarchy)
+        
+        total_score = (score_ratio * 0.50) + (score_clause * 0.20) + (score_format * 0.15) + (score_hierarchy * 0.15)
+        result.confidence_score = total_score
+        
+        if total_score >= _HIGH_THRESHOLD:
+            result.confidence_level = ConfidenceLevel.HIGH
+        elif total_score >= _MEDIUM_THRESHOLD:
+            result.confidence_level = ConfidenceLevel.MEDIUM
+        else:
+            result.confidence_level = ConfidenceLevel.LOW
+            
+        return result
 
     def score_batch(
         self,
@@ -155,18 +167,27 @@ class ConfidenceScorer:
                 if s.hierarchy_type is not None  # any child
             )
         )
-        ratio = articles_with_clauses / len(articles)
-        return ratio, f"{articles_with_clauses}/{len(articles)} articles have clauses"
+        raw_ratio = articles_with_clauses / len(articles)
+        
+        # Chỉ cần 25% số Điều có chứa Khoản là đạt điểm tối đa ở hạng mục này
+        target_ratio = 0.25
+        score = min(raw_ratio / target_ratio, 1.0)
+        
+        return score, f"{articles_with_clauses}/{len(articles)} articles have clauses (score: {score:.2f})"
 
     @staticmethod
     def _hierarchy_completeness_factor(result: ParseResult) -> tuple[float, str]:
         """
         Checks for orphan segments (clause/point with missing parent_uid).
         """
-        orphans = [
-            s for s in result.segments
-            if s.hierarchy_type in (ConfidenceLevel.HIGH,)  # placeholder
-            and s.parent_uid is None
-        ]
-        # TODO: implement properly in T1.2
-        return 1.0, "hierarchy_completeness: TODO"
+        from .models import HierarchyType
+        children = [s for s in result.segments if s.hierarchy_type in (HierarchyType.KHOAN, HierarchyType.DIEM)]
+        if not children:
+            return 1.0, "no clauses/points to check for orphans"
+            
+        orphans = [s for s in children if s.parent_uid is None]
+        if not orphans:
+            return 1.0, "0 orphans found"
+            
+        ratio = max(1.0 - (len(orphans) / len(children)), 0.0)
+        return ratio, f"{len(orphans)} orphan segments found"
