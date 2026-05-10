@@ -77,9 +77,10 @@ class Segment:
     # Chapter-specific
     roman_index: Optional[str] = None   # "I", "II", "III"...
     title: Optional[str] = None         # heading text (Chương/Điều/Mục title)
+    section: Optional[str] = None       # section context (Mục), stored as metadata instead of separate node
 
     # Embedding (set by ArticleEmbedder, only for DIEU level)
-    embedding: Optional[list[float]] = None  # 768-dim vector
+    embedding: Optional[list[float]] = None  # 1024-dim vector
 
     # Parser metadata
     parse_notes: list[str] = field(default_factory=list)  # warnings / edge cases

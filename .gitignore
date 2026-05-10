@@ -2,3 +2,28 @@
 .opencode/
 data/
 output/
+
+# cache 
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# pytest 
+.pytest_cache/
+
+# test 
+tests/
+
+# env 
+.env
+.env.local
+.env.prod
+.env.dev
+.venv/
+
+# error figure
+error/
+
+# ui prompt 
+frontend/frontend_prompt.md
