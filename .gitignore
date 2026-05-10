@@ -21,3 +21,9 @@ tests/
 .env.prod
 .env.dev
 .venv/
+
+# error figure
+error/
+
+# ui prompt 
+frontend/frontend_prompt.md
