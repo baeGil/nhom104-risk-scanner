@@ -142,7 +142,7 @@ def normalize(raw: str, loai_van_ban: str = "") -> Optional[str]:
         return None
 
     # Nếu loai_van_ban cung cấp, ưu tiên prefix từ đó
-    prefix = LOAI_VAN_BAN_PREFIX.get(loai_van_ban.strip(), parsed["type"] or "UNKNOWN")
+    prefix = LOAI_VAN_BAN_PREFIX.get((loai_van_ban or "").strip(), parsed["type"] or "UNKNOWN")
 
     return f"{prefix}-{parsed['number']}-{parsed['year']}"
 
@@ -237,8 +237,6 @@ def main(
 ) -> None:
     """
     T0.1 main: Đọc metadata.parquet, normalize, xuất lookup JSON.
-
-    TODO: implement khi có metadata.parquet
     """
     import pandas as pd  # noqa: PLC0415
 

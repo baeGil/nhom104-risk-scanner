@@ -31,10 +31,19 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Neo4j credentials (from environment variables, with fallback to defaults)
+# ---------------------------------------------------------------------------
+
+NEO4J_URI      = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
+NEO4J_USER     = os.getenv("NEO4J_USER",     "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 
 # ---------------------------------------------------------------------------
 # Relationship type mapping
@@ -58,13 +67,18 @@ RELATIONSHIP_TYPE_MAP: dict[str, str] = {
     "Văn bản bị đình chỉ":                   "SUSPENDED_BY",
     "Văn bản đình chỉ 1 phần":               "PARTIALLY_SUSPENDS",
     "Văn bản bị đình chỉ 1 phần":            "PARTIALLY_SUSPENDED_BY",
+    "CAN_CU":                                "CITES",
+    "SUA_DOI":                               "AMENDS",
+    "HUONG_DAN":                             "DETAILS",
+    "THAY_THE":                              "SUPERSEDES",
+    "LIEN_QUAN":                             "RELATED",
 }
 
 # Cypher template cho MERGE relationship
 _MERGE_REL_CYPHER = """
 UNWIND $batch AS row
-MATCH (a:Document {id: row.doc_id})
-MATCH (b:Document {id: row.other_doc_id})
+MATCH (a:Document {{id: row.doc_id}})
+MATCH (b:Document {{id: row.other_doc_id}})
 MERGE (a)-[r:{rel_type}]->(b)
 """
 
@@ -192,9 +206,9 @@ def ingest_relationships(
 
 def main(
     relationships_path: str = "data/relationships.parquet",
-    neo4j_uri: str          = "bolt://localhost:7687",
-    neo4j_user: str         = "neo4j",
-    neo4j_password: str     = "password",
+    neo4j_uri: str          = NEO4J_URI,
+    neo4j_user: str         = NEO4J_USER,
+    neo4j_password: str     = NEO4J_PASSWORD,
     orphan_log_path: str    = "output/orphan_relationships.json",
 ) -> None:
     """
@@ -207,6 +221,12 @@ def main(
     df = pd.read_parquet(relationships_path)
     logger.info("Loaded %d relationships", len(df))
 
+    # Nếu không có dữ liệu, skip gracefully
+    if df.empty:
+        logger.info("T1.7: relationships.parquet is empty — skipping Neo4j ingest (no data yet)")
+        return
+
+    logger.info("T1.7 — Connecting to Neo4j at %s as user '%s'", neo4j_uri, neo4j_user)
     driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
 
     try:
