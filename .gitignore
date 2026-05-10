@@ -20,3 +20,9 @@ tests/
 .env.local
 .env.prod
 .env.dev
+
+# error figure
+error/
+
+# ui prompt 
+frontend/frontend_prompt.md
