@@ -67,13 +67,18 @@ RELATIONSHIP_TYPE_MAP: dict[str, str] = {
     "Văn bản bị đình chỉ":                   "SUSPENDED_BY",
     "Văn bản đình chỉ 1 phần":               "PARTIALLY_SUSPENDS",
     "Văn bản bị đình chỉ 1 phần":            "PARTIALLY_SUSPENDED_BY",
+    "CAN_CU":                                "CITES",
+    "SUA_DOI":                               "AMENDS",
+    "HUONG_DAN":                             "DETAILS",
+    "THAY_THE":                              "SUPERSEDES",
+    "LIEN_QUAN":                             "RELATED",
 }
 
 # Cypher template cho MERGE relationship
 _MERGE_REL_CYPHER = """
 UNWIND $batch AS row
-MATCH (a:Document {id: row.doc_id})
-MATCH (b:Document {id: row.other_doc_id})
+MATCH (a:Document {{id: row.doc_id}})
+MATCH (b:Document {{id: row.other_doc_id}})
 MERGE (a)-[r:{rel_type}]->(b)
 """
 

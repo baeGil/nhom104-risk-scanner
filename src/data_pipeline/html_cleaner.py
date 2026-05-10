@@ -226,22 +226,66 @@ def _extract_text(html: str) -> str:
 # ---------------------------------------------------------------------------
 
 def main(
-    content_path: str  = "data/content_enriched.parquet",
+    content_path: str  = "data/content.parquet",
     output_path: str   = "data/content_clean.parquet",
+    raw_col: str       = "content_html",
 ) -> None:
     """
     T0.4 main: Đọc content parquet, clean HTML, xuất parquet mới.
+    Đọc từ data thật (content_html column) hoặc từ crawler output (raw_html column).
     """
-    import pandas as pd  # noqa: PLC0415
+    import pyarrow.parquet as pq  # noqa: PLC0415
+    import pyarrow as pa
+    import pandas as pd
+    from pathlib import Path
 
-    logger.info("T0.4 — Loading content from %s", content_path)
-    df = pd.read_parquet(content_path)
+    logger.info("T0.4 — Loading content schema from %s", content_path)
 
-    logger.info("T0.4 — Cleaning HTML for %d docs", len(df))
-    df_clean = process_dataframe(df, raw_col="raw_html", clean_col="clean_html")
+    pf = pq.ParquetFile(content_path)
+    schema = pf.schema_arrow
+    col_names = [f.name for f in schema]
 
-    df_clean.to_parquet(output_path, index=False)
-    logger.info("T0.4 done — output: %s", output_path)
+    # Tự detect cột chứa HTML
+    if raw_col not in col_names:
+        for candidate in ["raw_html", "content_html", "html"]:
+            if candidate in col_names:
+                raw_col = candidate
+                break
+
+    logger.info("T0.4 — Using column '%s' as HTML source", raw_col)
+    logger.info("T0.4 — Total rows: %d", pf.metadata.num_rows)
+
+    # Xử lý từng batch để tiết kiệm RAM (file 393MB)
+    BATCH_SIZE = 2000
+    total_failed = 0
+    
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    writer = None
+
+    for i, batch in enumerate(pf.iter_batches(batch_size=BATCH_SIZE, columns=["id", raw_col])):
+        df_batch = batch.to_pandas()
+        df_clean = process_dataframe(df_batch, raw_col=raw_col, clean_col="clean_html")
+        
+        # Chỉ giữ lại cột cần thiết để tiết kiệm đĩa
+        table = pa.Table.from_pandas(df_clean[["id", "clean_html"]])
+        
+        if writer is None:
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            writer = pq.ParquetWriter(output_path, table.schema)
+        
+        writer.write_table(table)
+        
+        if (i + 1) % 10 == 0:
+            rows_done = (i + 1) * BATCH_SIZE
+            logger.info("T0.4 — Processed %d rows...", rows_done)
+
+    if writer:
+        writer.close()
+    
+    logger.info("T0.4 done — output: %s (streaming finished)", output_path)
+
 
 
 if __name__ == "__main__":

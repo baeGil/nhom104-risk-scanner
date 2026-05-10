@@ -197,6 +197,14 @@ def crawl_batch(
                 _save_checkpoint(checkpoint_path, doc_id)
                 break
             except Exception as exc:
+                err_str = str(exc)
+                # 403 = bị chặn vĩnh viễn hoặc không tồn tại → không retry
+                if "403" in err_str or "410" in err_str:
+                    logger.warning("Permanent failure for %s (HTTP %s) — skipping",
+                                   doc_id, "403" if "403" in err_str else "410")
+                    results.append({"doc_id": doc_id, "status": "blocked"})
+                    _save_checkpoint(checkpoint_path, doc_id)  # đánh dấu để không retry
+                    break
                 logger.warning("Attempt %d failed for %s: %s", attempt+1, doc_id, exc)
                 time.sleep(rate_limit_sec * 2)
         else:
@@ -245,16 +253,25 @@ def main(
     """
     T0.3 main: Tìm docs thiếu content, crawl, merge vào parquet.
     """
+    import pyarrow.parquet as pq  # noqa: PLC0415
+
+    logger.info("T0.3 — Finding missing content docs (streaming mode)")
+
+    # Đọc IDs từ content.parquet theo batch để tránh OOM (393MB)
+    content_pf = pq.ParquetFile(content_path)
+    has_content: set = set()
+    for batch in content_pf.iter_batches(batch_size=5000, columns=["id"]):
+        has_content.update(str(v) for v in batch.column("id").to_pylist())
+    logger.info("T0.3 — Content IDs loaded: %d docs have content", len(has_content))
+
+    # Đọc metadata_deduped (2.2MB) — an toàn để load bình thường
     import pandas as pd  # noqa: PLC0415
+    meta_df = pd.read_parquet(metadata_path)
+    meta_df["id"] = meta_df["id"].astype(str)
 
-    logger.info("T0.3 — Finding missing content docs")
-    meta_df    = pd.read_parquet(metadata_path)
-    content_df = pd.read_parquet(content_path)
-
-    # Tìm docs thiếu content
-    has_content = set(content_df["doc_id"].tolist())
-    missing_df  = meta_df[~meta_df["id"].isin(has_content)]
+    missing_df = meta_df[~meta_df["id"].isin(has_content)]
     logger.info("Missing content: %d docs", len(missing_df))
+
 
     missing_docs = missing_df[["id", "so_ky_hieu", "loai_van_ban"]].rename(
         columns={"id": "doc_id"}
@@ -263,24 +280,52 @@ def main(
     results = crawl_batch(missing_docs, checkpoint_path=checkpoint_path)
 
     # Merge vào content parquet
-    if results:
-        success_results = [r for r in results if r.get("status") == "success"]
-        if success_results:
-            new_df = pd.DataFrame(success_results)[["doc_id", "raw_html"]]
-            
-            # Check if original content.parquet exists
-            if Path(content_path).exists():
-                merged_df = pd.concat([content_df, new_df], ignore_index=True)
-            else:
-                merged_df = new_df
-                
-            # Tạo thư mục và ghi ra file enriched parquet
-            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            merged_df.to_parquet(output_path, index=False)
-            logger.info("Merged %d new documents into %s", len(new_df), output_path)
+    success_results = [r for r in results if r.get("status") == "success"]
+    blocked_count   = sum(1 for r in results if r.get("status") == "blocked")
+    not_found_count = sum(1 for r in results if r.get("status") == "not_found")
+
+    logger.info(
+        "T0.3 summary: %d success, %d blocked/403, %d not_found, %d error",
+        len(success_results), blocked_count, not_found_count,
+        len(results) - len(success_results) - blocked_count - not_found_count,
+    )
+
+    if success_results:
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        new_df = pd.DataFrame(success_results)[["doc_id", "raw_html"]].rename(
+            columns={"doc_id": "id", "raw_html": "content_html"}
+        )
+        # Merge dùng pyarrow để tránh OOM với file 393MB
+        new_table = pa.Table.from_pandas(new_df)
+        if Path(output_path).exists():
+            existing = pq.read_table(output_path)
+            merged   = pa.concat_tables([existing, new_table])
         else:
-            logger.info("No successful crawls to merge.")
+            merged = new_table
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        pq.write_table(merged, output_path)
+        logger.info("Merged %d new docs → %s", len(new_df), output_path)
+    else:
+        logger.info("No successful crawls — 642 docs are local/unavailable on TVPL, skipping merge.")
+        # Tạo output_path rỗng nếu chưa tồn tại (T0.4 cần file này)
+        if not Path(output_path).exists():
+            import pyarrow as pa
+            import pyarrow.parquet as pq
+            empty = pa.table({"id": pa.array([], type=pa.string()),
+                              "content_html": pa.array([], type=pa.string())})
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            pq.write_table(empty, output_path)
+
     logger.info("T0.3 done — %d crawled", len(results))
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(levelname)s %(name)s \u2014 %(message)s")
+    main()
+
 
 
 if __name__ == "__main__":
