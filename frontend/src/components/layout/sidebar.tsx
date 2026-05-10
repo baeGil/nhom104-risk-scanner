@@ -123,7 +123,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           onMouseLeave={() => setHoveredItem(null)}
         >
           <Link
-            href="/login"
+            href="/"
             className={cn(
               "flex items-center py-3 overflow-hidden transition-all duration-300 ease-in-out",
               collapsed ? "justify-center px-0" : "px-4 gap-3",
