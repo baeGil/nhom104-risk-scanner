@@ -1,0 +1,10 @@
+schema: spec-driven
+name: implement-data-pipeline-infra-v1
+description: Implementation of the core data pipeline infrastructure, including normalization, crawling, HTML cleaning, and Neo4j ingestion.
+created: 2026-05-10
+status: archived
+artifacts:
+  proposal:
+    status: completed
+  tasks:
+    status: completed
