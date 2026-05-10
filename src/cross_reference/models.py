@@ -71,6 +71,8 @@ class InternalRef:
 
     context_text: str = ""      # original phrase where the reference was found
     confidence: float = 1.0     # 1.0 = exact regex match, <1.0 = fuzzy/ambiguous
+    start_char: int = 0         # Start position in the original fragment
+    end_char: int = 0           # End position in the original fragment
 
 
 @dataclass
@@ -103,6 +105,8 @@ class ExternalRef:
     context_text: str = ""
     match_method: str = "exact"         # "exact" | "fuzzy_levenshtein" | "fuzzy_substring"
     confidence: float = 1.0
+    start_char: int = 0
+    end_char: int = 0
 
 
 @dataclass
@@ -116,6 +120,7 @@ class ModificationRef:
     # The modifying document
     source_doc_id: str
     source_article_uid: str     # Article in the modifying doc that contains the action
+    source_clause_index: Optional[str] = None # Clause number in the source document
 
     # The action
     action: ModAction = ModAction.SUA_DOI
@@ -135,6 +140,8 @@ class ModificationRef:
     new_text: Optional[str] = None      # replacement/inserted text (for sửa đổi/bổ sung)
     context_text: str = ""
     confidence: float = 1.0
+    start_char: int = 0
+    end_char: int = 0
 
 
 # ---------------------------------------------------------------------------

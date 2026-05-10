@@ -30,13 +30,16 @@
 
 ## Phase 2: Cross-Reference Extraction
 
+- [ ] T2.0: **Build short-title mapping table** — Create a JSON mapping of common law titles (e.g., "Luật Đất đai", "Bộ luật Dân sự") to their normalized `so_ky_hieu`. This enables resolution of references that lack serial numbers.
+
 - [ ] T2.1: **Extract internal references** — Regex patterns for Điều/khoản/điểm references within same Document. Patterns: "theo quy định tại Điều {N}", "tại khoản {K} Điều {N}", "tại điểm {L} khoản {K} Điều {N}". Create [:REFERENCES_INTERNAL] relationships with context text. Target: ~100K internal references. — *Depends on: T1.3* — *Spec: cross-reference-extraction*
 
-- [ ] T2.2: **Extract external references** — Regex patterns for cross-document references (Luật/ND/TT + so_ky_hieu). Resolve via lookup table from T0.5. Fuzzy match fallback for non-standard formats (25-30%). Create [:REFERENCES_EXTERNAL] relationships. Target: ≥95% resolution for standard formats, ≥80% for non-standard. — *Depends on: T0.5, T1.3* — *Spec: cross-reference-extraction*
+- [ ] T2.2: **Extract external references** — Implement `preprocess_text` to strip whitespace around `/`. Use Regex for cross-document references (Luật/ND/TT + so_ky_hieu) and resolve via T0.5 lookup or T2.0 short-title mapping. Fuzzy match fallback for non-standard formats. Create [:REFERENCES_EXTERNAL] relationships. — *Depends on: T0.5, T1.3, T2.0* — *Spec: cross-reference-extraction*
 
-- [ ] T2.3: **Extract modification references** — For 3,092 modifying documents, parse each Điều to extract: action (sửa đổi/bổ sung/thay thế/bãi bỏ), target_doc, target_Điều, target_Khoản, target_Điểm. Handle patterns like "Sửa đổi khoản X Điều Z Nghị định số Y". Create [:MODIFIES] relationships. Target: 5K-8K article-level links. — *Depends on: T1.3, T2.2* — *Spec: cross-reference-extraction*
+- [ ] T2.3: **Extract modification references** — Split sentences by `;` to handle multiple actions. For each Điều of modifying docs, extract action (sửa đổi/bổ sung/thay thế/bãi bỏ) and target (doc, Điều, Khoản, Điểm). Resolve via T0.5/T2.0. Create [:MODIFIES] relationships. — *Depends on: T1.3, T2.2* — *Spec: cross-reference-extraction*
 
-- [ ] T2.4: **Validate cross-references** — Check all external references resolve to existing Document nodes. Check all MODIFIES targets resolve to existing Article nodes. Compute resolution rate metrics. Generate validation report with unresolved references list. Target: ≥95% overall, ≥95% standard, ≥80% non-standard. — *Depends on: T2.1, T2.2, T2.3* — *Spec: cross-reference-extraction*
+- [ ] T2.4: **Validate cross-references** — Check all external references resolve to existing Document nodes. Check all MODIFIES targets resolve to existing Article nodes. Compute resolution rate metrics. Generate validation report. — *Depends on: T2.1, T2.2, T2.3* — *Spec: cross-reference-extraction*
+- [ ] T2.5: **Extract primary target from Preamble** — Process the start of the document (before "đã được" or Article 1) to identify the primary amended document. Resolve to `doc_id` and create document-level `[:MODIFIES]` link. — *Depends on: T1.3, T2.0* — *Spec: cross-reference-extraction*
 
 ## Phase 3: Effective Text Composition
 

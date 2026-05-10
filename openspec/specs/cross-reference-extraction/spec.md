@@ -26,6 +26,8 @@ Detect references from one Điều/Khoản/Điểm to another within the same do
 
 Detect references from one document's provisions to provisions in other documents.
 
+- **Pre-normalization**: Strip whitespace around delimiters (e.g., `46 / 2014` -> `46/2014`) before matching.
+- **Short Title Support**: Resolve references using common titles (e.g., "Luật Đất đai") via a dedicated mapping table to `so_ky_hieu`.
 - Regex patterns for cross-document references:
   - `"căn cứ Luật {keyword} số {N}/{Y}/QH{session}"` → Luật lookup
   - `"theo Nghị định {N}/{Y}/NĐ-CP"` → Nghị định lookup
@@ -43,12 +45,13 @@ Detect references from one document's provisions to provisions in other document
 
 ### Extract modification references
 
-Parse "sửa đổi/bổ sung" documents to create article-level modification links — the most critical cross-reference type for effective text composition.
+Parse "sửa đổi/bổ sung" documents to create article-level modification links.
 
+- **Multi-action Split**: Pre-process text by splitting sentences on semicolons (`;`) to handle multiple actions (e.g., "Sửa đổi khoản 1; bãi bỏ khoản 2").
 - Only process documents identified in relationship data as "Văn bản sửa đổi" or "Văn bản bổ sung"
 - For each Điều of the modifying document, parse its text to extract:
   - Action: "sửa đổi" | "bổ sung" | "thay thế" | "bãi bỏ" | "hết hiệu lực một phần"
-  - Target document: so_ky_hieu reference in text → resolve to doc_id
+  - Target document: so_ky_hieu reference in text (including short titles) → resolve to doc_id
   - Target article: Điều number extracted from text
   - Target clause: Khoản number (nullable)
   - Target point: Điểm letter (nullable)
@@ -65,6 +68,18 @@ Parse "sửa đổi/bổ sung" documents to create article-level modification li
 - Validate: source Article must exist, target Document must exist, target Article should exist
 - Log unresolved modifications (target_doc or target_article not found)
 - Target: 5,000-8,000 article-level modification links
+
+### Extract primary target from preamble
+
+For amending documents, extract the primary target document mentioned in the preamble to establish a high-confidence document-level MODIFIES relationship.
+
+- **Scope**: Only scan the text from the beginning of the document up to the first occurrence of `"đã được"` or the first Article.
+- **Regex Pattern**: `sửa đổi,\s+bổ sung\s+một số điều của\s+([^,;]+?)\s+số\s+(\d+/\d+/[A-ZĐ-]+)`
+- **Logic**:
+  - Identify the primary document being amended.
+  - Resolve to `doc_id` via `so_ky_hieu` lookup.
+  - Create a document-level `[:MODIFIES]` relationship in Neo4j.
+- **Purpose**: This acts as the "anchor" for all article-level modifications found in the body, ensuring the correct direction of the relationship (Current Doc -> Modifies -> Target Doc).
 
 ### Validate cross-references
 

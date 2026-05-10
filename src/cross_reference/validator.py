@@ -115,22 +115,38 @@ class CrossReferenceValidator:
 
     def validate(self) -> ValidationReport:
         """
-        TODO (Team B — T2.4):
         Run validation queries against Neo4j and return a populated ValidationReport.
-
-        Suggested Cypher queries:
-        ─────────────────────────
-        1. Count total [:REFERENCES_INTERNAL] vs those with valid targets:
-           MATCH ()-[r:REFERENCES_INTERNAL]->() RETURN count(r)
-
-        2. Count [:REFERENCES_EXTERNAL] by match_method:
-           MATCH ()-[r:REFERENCES_EXTERNAL]->()
-           RETURN r.match_method, count(r)
-
-        3. Count unresolved (stored as separate UnresolvedRef nodes or in a log file):
-           Depends on implementation choice in writer.py
-
-        4. Check [:MODIFIES] where target Article exists:
-           MATCH (s:Article)-[r:MODIFIES]->(t:Article) RETURN count(r)
         """
-        raise NotImplementedError("T2.4: implement validate()")
+        report = ValidationReport()
+        with self._driver.session() as session:
+            # 1. Internal References
+            res_int = session.run("MATCH ()-[r:REFERENCES_INTERNAL]->() RETURN count(r) as total")
+            report.total_internal = report.resolved_internal = res_int.single()["total"]
+
+            # 2. External References by match_method
+            res_ext = session.run("""
+                MATCH ()-[r:REFERENCES_EXTERNAL]->()
+                RETURN r.match_method as method, r.confidence as conf, count(r) as count
+            """)
+            for record in res_ext:
+                method = record["method"]
+                count = record["count"]
+                conf = record["conf"]
+                
+                report.total_external += count
+                if method == "exact" or method == "short_title_map":
+                    report.resolved_external_exact += count
+                else:
+                    report.resolved_external_fuzzy += count
+                
+                # Bucketing confidence
+                if conf >= 0.8: report.fuzzy_confidence_buckets["0.8-1.0"] += count
+                elif conf >= 0.6: report.fuzzy_confidence_buckets["0.6-0.8"] += count
+                elif conf >= 0.4: report.fuzzy_confidence_buckets["0.4-0.6"] += count
+                else: report.fuzzy_confidence_buckets["<0.4"] += count
+
+            # 3. Modification References
+            res_mod = session.run("MATCH ()-[r:MODIFIES]->() RETURN count(r) as total")
+            report.total_modification = report.resolved_modification = res_mod.single()["total"]
+
+        return report

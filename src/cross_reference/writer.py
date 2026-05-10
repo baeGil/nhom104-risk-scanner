@@ -102,52 +102,105 @@ class CrossReferenceWriter:
     @staticmethod
     def _write_internal_ref(tx, ref: InternalRef) -> None:
         """
-        TODO (Team B — T2.1):
-        Implement Cypher MERGE for [:REFERENCES_INTERNAL].
-
-        Template:
-            MATCH (src:Article {uid: $source_uid})
-            MATCH (tgt:Article {uid: $target_uid})
-            MERGE (src)-[r:REFERENCES_INTERNAL]->(tgt)
-            SET r.context_text = $context_text,
-                r.confidence   = $confidence
-        Note: target_article_uid must be pre-resolved (lookup by doc_id + index).
+        Write [:REFERENCES_INTERNAL] relationship.
         """
-        raise NotImplementedError("T2.1: implement _write_internal_ref Cypher")
+        # 1. Resolve target Article UID within the same document
+        query_resolve = """
+        MATCH (d:Document {id: $doc_id})-[:HAS_ARTICLE]->(tgt:Article {index: $idx})
+        RETURN tgt.uid as uid
+        """
+        result = tx.run(query_resolve, doc_id=ref.source_doc_id, idx=ref.target_article_index)
+        record = result.single()
+        if not record:
+            logger.debug("Internal target Article %s not found in doc %s", ref.target_article_index, ref.source_doc_id)
+            return
+
+        target_uid = record["uid"]
+
+        # 2. MERGE relationship
+        query_merge = """
+        MATCH (src:Article {uid: $source_uid})
+        MATCH (tgt:Article {uid: $target_uid})
+        MERGE (src)-[r:REFERENCES_INTERNAL]->(tgt)
+        SET r.context_text = $context,
+            r.confidence   = $conf
+        """
+        tx.run(query_merge, source_uid=ref.source_article_uid, target_uid=target_uid, context=ref.context_text, conf=ref.confidence)
 
     @staticmethod
     def _write_external_ref(tx, ref: ExternalRef) -> None:
         """
-        TODO (Team B — T2.2):
-        Implement Cypher MERGE for [:REFERENCES_EXTERNAL].
-
-        Template:
-            MATCH (src:Article {uid: $source_uid})
-            MATCH (tgt:Document {id: $target_doc_id})
-            MERGE (src)-[r:REFERENCES_EXTERNAL]->(tgt)
-            SET r.context_text        = $context_text,
-                r.raw_so_ky_hieu      = $raw_so_ky_hieu,
-                r.match_method        = $match_method,
-                r.confidence          = $confidence
-        If target_article_uid is resolved, point to Article node instead.
+        Write [:REFERENCES_EXTERNAL] relationship.
         """
-        raise NotImplementedError("T2.2: implement _write_external_ref Cypher")
+        # If target_article_index is present, try to link to Article instead of Document
+        if ref.target_article_index:
+            query_resolve = """
+            MATCH (d:Document {id: $doc_id})-[:HAS_ARTICLE]->(tgt:Article {index: $idx})
+            RETURN tgt.uid as uid
+            """
+            result = tx.run(query_resolve, doc_id=ref.target_doc_id, idx=ref.target_article_index)
+            record = result.single()
+            if record:
+                target_uid = record["uid"]
+                query_merge = """
+                MATCH (src:Article {uid: $source_uid})
+                MATCH (tgt:Article {uid: $target_uid})
+                MERGE (src)-[r:REFERENCES_EXTERNAL]->(tgt)
+                SET r.context_text = $context,
+                    r.raw_so_ky_hieu = $skh,
+                    r.confidence = $conf
+                """
+                tx.run(query_merge, source_uid=ref.source_article_uid, target_uid=target_uid, 
+                       context=ref.context_text, skh=ref.raw_so_ky_hieu, conf=ref.confidence)
+                return
+
+        # Fallback: Link to Document
+        query_doc = """
+        MATCH (src:Article {uid: $source_uid})
+        MATCH (tgt:Document {id: $target_doc_id})
+        MERGE (src)-[r:REFERENCES_EXTERNAL]->(tgt)
+        SET r.context_text = $context,
+            r.raw_so_ky_hieu = $skh,
+            r.match_method = $method,
+            r.confidence = $conf
+        """
+        tx.run(query_doc, source_uid=ref.source_article_uid, target_doc_id=ref.target_doc_id,
+               context=ref.context_text, skh=ref.raw_so_ky_hieu, method=ref.match_method, conf=ref.confidence)
 
     @staticmethod
     def _write_modification_ref(tx, ref: ModificationRef) -> None:
         """
-        TODO (Team B — T2.3):
-        Implement Cypher MERGE for [:MODIFIES].
-
-        Template:
-            MATCH (src:Article {uid: $source_article_uid})
-            MATCH (tgt:Article {uid: $target_article_uid})
-            MERGE (src)-[r:MODIFIES]->(tgt)
-            SET r.action         = $action,
-                r.target_clause  = $target_clause_index,
-                r.target_point   = $target_point_label,
-                r.new_text       = $new_text,
-                r.context_text   = $context_text,
-                r.confidence     = $confidence
+        Write [:MODIFIES] relationship.
         """
-        raise NotImplementedError("T2.3: implement _write_modification_ref Cypher")
+        # 1. Resolve target node
+        target_label = "Document"
+        target_query_part = "{id: $target_doc_id}"
+        params = {"source_uid": ref.source_article_uid, "target_doc_id": ref.target_doc_id, 
+                  "action": ref.action, "context": ref.context_text, "conf": ref.confidence, "new_text": ref.new_text}
+
+        if ref.target_article_index:
+            query_resolve = """
+            MATCH (d:Document {id: $doc_id})-[:HAS_ARTICLE]->(tgt:Article {index: $idx})
+            RETURN tgt.uid as uid
+            """
+            res = tx.run(query_resolve, doc_id=ref.target_doc_id, idx=ref.target_article_index)
+            rec = res.single()
+            if rec:
+                target_label = "Article"
+                target_query_part = "{uid: $target_uid}"
+                params["target_uid"] = rec["uid"]
+            else:
+                # If target article not found, link to Doc as fallback
+                pass
+
+        # 2. MERGE relationship
+        query_merge = f"""
+        MATCH (src:Article {{uid: $source_uid}})
+        MATCH (tgt:{target_label} {target_query_part})
+        MERGE (src)-[r:MODIFIES]->(tgt)
+        SET r.action = $action,
+            r.context_text = $context,
+            r.confidence = $conf,
+            r.new_text = $new_text
+        """
+        tx.run(query_merge, **params)
