@@ -52,7 +52,7 @@
 
 ## Phase 4: Contract Review Pipeline
 
-- [ ] T4.1: **Implement contract parser** — PDF (PyMuPDF), Word (python-docx), text extraction. Tesseract OCR with Vietnamese language pack for scanned PDFs. Detect scanned vs text PDFs by character count per page. Output: raw_text. — *Spec: contract-review-pipeline*
+- [x] T4.1: **Implement contract parser** — PDF (PyMuPDF), Word (python-docx), text extraction. Tesseract OCR with Vietnamese language pack for scanned PDFs. Detect scanned vs text PDFs by character count per page. Output: raw_text. — *Spec: contract-review-pipeline*
 
 - [ ] T4.2: **Implement contract clause extractor** — LLM-based extraction of clauses (type, parties, obligations) from contract raw text. Output: Contract and ContractClause nodes in Neo4j. Generate embeddings for ContractClause using vietlegal-harrier-0.6b. Target: ≥90% clause extraction accuracy. — *Depends on: T4.1* — *Spec: contract-review-pipeline*
 
@@ -66,7 +66,7 @@
 
 ## Phase 5: Legal QA Pipeline
 
-- [ ] T5.1: **Implement question intent analysis** — LLM classification: article_reference_query, topic_query, validity_query, comparison_query. Extract: document_type, article_number, time_reference. — *Spec: contract-review-pipeline*
+- [x] T5.1: **Implement question intent analysis** — LLM classification: article_reference_query, topic_query, validity_query, comparison_query. Extract: document_type, article_number, time_reference. — *Spec: contract-review-pipeline*
 
 - [ ] T5.2: **Implement retrieval pipeline** — Article reference → direct Neo4j lookup. Topic query → vector search + graph traversal (MODIFIES, REFERENCES, DETAILS). Always get EffectiveArticle for current text. — *Depends on: T3.3, T1.6* — *Spec: contract-review-pipeline*
 
