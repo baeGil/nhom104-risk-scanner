@@ -1,0 +1,46 @@
+services:
+  # ── Neo4j Graph Database ───────────────────────────────────────────────────
+  neo4j:
+    image: neo4j:5.15-community
+    container_name: legal-neo4j
+    ports:
+      - "7474:7474"   # Web UI
+      - "7687:7687"   # Bolt protocol
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    environment:
+      # Auth
+      - NEO4J_AUTH=${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-password}
+      # Memory (Neo4j 5.x config keys)
+      - NEO4J_dbms_memory_heap_initial__size=${NEO4J_HEAP_INITIAL_SIZE:-512M}
+      - NEO4J_dbms_memory_heap_max__size=${NEO4J_HEAP_SIZE:-2G}
+      - NEO4J_dbms_memory_pagecache_size=${NEO4J_PAGE_CACHE:-1G}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Embedding Service (T6.2) ───────────────────────────────────────────────
+  # Uncomment if you have GPU or want to run embedding service in Docker
+  # embedding:
+  #   build: ./infra/embedding_service
+  #   container_name: legal-embed
+  #   ports:
+  #     - "${EMBED_PORT:-8001}:${EMBED_PORT:-8001}"
+  #   environment:
+  #     - EMBED_MODEL=${EMBED_MODEL:-mainguyen9/vietlegal-harrier-0.6b}
+  #     - EMBED_BATCH_SIZE=${EMBED_BATCH_SIZE:-512}
+  #     - EMBED_MAX_TEXTS=${EMBED_MAX_TEXTS:-1000}
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
