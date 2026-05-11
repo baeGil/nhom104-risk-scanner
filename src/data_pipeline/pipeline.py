@@ -161,14 +161,18 @@ def run_phase_0(checkpoint: Checkpoint, *, force: bool = False) -> bool:
     from .normalize    import main as t01_main  # noqa: PLC0415
     from .lookup       import SoKyHieuResolver  # noqa: PLC0415 (T0.5 called inside T0.1)
     from .dedup        import main as t02_main  # noqa: PLC0415
-    from .crawler      import main as t03_main  # noqa: PLC0415
+    # T0.3 (crawler) bị skip: cấu trúc thuvienphapluat.vn đã thay đổi, crawl không hoạt động
+    # from .crawler      import main as t03_main  # noqa: PLC0415
     from .html_cleaner import main as t04_main  # noqa: PLC0415
 
     tasks = [
         ("T0.1", t01_main),  # Normalize so_ky_hieu → lookup JSON
         ("T0.5", lambda: logger.info("T0.5 embedded in T0.1 (lookup already built)")),
         ("T0.2", t02_main),  # Dedup
-        ("T0.3", t03_main),  # Crawl missing
+        ("T0.3", lambda: logger.info(  # Crawl bị SKIP — website cấu trúc thay đổi
+            "T0.3 SKIPPED: crawler không khả dụng (thuvienphapluat.vn đã đổi cấu trúc). "
+            "Tiếp tục với dữ liệu đã có."
+        )),
         ("T0.4", t04_main),  # Clean HTML
     ]
 

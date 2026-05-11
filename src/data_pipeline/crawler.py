@@ -323,12 +323,5 @@ def main(
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
-                        format="%(asctime)s %(levelname)s %(name)s \u2014 %(message)s")
-    main()
-
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s — %(message)s")
     main()
