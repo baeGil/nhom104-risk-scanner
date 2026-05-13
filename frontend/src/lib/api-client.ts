@@ -16,6 +16,17 @@ const defaultConfig: ApiConfig = {
   retries: 2,
 };
 
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/auth/session");
+    if (!res.ok) return null;
+    const session = await res.json();
+    return session?.accessToken || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -23,6 +34,12 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const { baseUrl, timeout, retries } = { ...defaultConfig, ...config };
   const url = `${baseUrl}${endpoint}`;
+
+  const token = await getAuthToken();
+  const authHeaders: Record<string, string> = {};
+  if (token) {
+    authHeaders["Authorization"] = `Bearer ${token}`;
+  }
 
   let lastError: ApiError | null = null;
 
@@ -36,11 +53,17 @@ export async function apiRequest<T>(
         signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
+          ...authHeaders,
           ...options.headers,
         },
       });
 
       clearTimeout(timeoutId);
+
+      if (response.status === 401) {
+        window.location.href = "/login?callbackUrl=" + encodeURIComponent(window.location.pathname);
+        throw { message: "Unauthorized", status: 401 } as ApiError;
+      }
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
@@ -72,11 +95,22 @@ export async function apiSSE<T>(
   const { baseUrl } = { ...defaultConfig, ...config };
   const url = `${baseUrl}${endpoint}`;
 
+  const token = await getAuthToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
+
+  if (response.status === 401) {
+    window.location.href = "/login?callbackUrl=" + encodeURIComponent(window.location.pathname);
+    throw { message: "Unauthorized", status: 401 } as ApiError;
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => null);

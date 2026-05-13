@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useLogoutConfirm } from "@/lib/logout-context";
 import {
   FileText,
   MessageSquare,
@@ -29,6 +30,7 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const { showLogoutConfirm } = useLogoutConfirm();
 
   return (
     <aside
@@ -40,7 +42,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Logo / Toggle */}
       <div
         className={cn(
-          "flex items-center border-b-2 border-fg/20 h-16 transition-all duration-300",
+          "flex items-center border-r-2 border-fg/20 h-16 transition-all duration-300",
           collapsed ? "justify-center px-2" : "justify-between px-4"
         )}
       >
@@ -122,10 +124,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           onMouseEnter={() => collapsed && setHoveredItem("logout")}
           onMouseLeave={() => setHoveredItem(null)}
         >
-          <Link
-            href="/"
+          <button
+            onClick={showLogoutConfirm}
             className={cn(
-              "flex items-center py-3 overflow-hidden transition-all duration-300 ease-in-out",
+              "flex items-center py-3 overflow-hidden transition-all duration-300 ease-in-out w-full",
               collapsed ? "justify-center px-0" : "px-4 gap-3",
               "text-fg/60 hover:text-accent hover:bg-muted/50"
             )}
@@ -140,7 +142,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             >
               Đăng xuất
             </span>
-          </Link>
+          </button>
           {collapsed && hoveredItem === "logout" && (
             <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-fg text-white font-body text-sm whitespace-nowrap z-50 pointer-events-none">
               Đăng xuất
