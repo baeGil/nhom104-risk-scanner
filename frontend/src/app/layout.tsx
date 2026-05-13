@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Kalam, Patrick_Hand } from "next/font/google";
 import "./globals.css";
+import { AuthSyncProvider } from "@/lib/auth-sync";
 
 const kalam = Kalam({
   variable: "--font-kalam",
@@ -35,7 +36,9 @@ export default function RootLayout({
       lang="vi"
       className={`${kalam.variable} ${patrickHand.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <AuthSyncProvider>{children}</AuthSyncProvider>
+      </body>
     </html>
   );
 }
