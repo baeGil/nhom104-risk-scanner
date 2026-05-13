@@ -24,7 +24,7 @@
 
 - [x] T1.5: **Batch ingest segments into Neo4j** — MERGE operations for Document → Chapter → Article → Clause → Point hierarchy. Create HAS_CHAPTER, HAS_ARTICLE, HAS_CLAUSE, HAS_POINT relationships with order property. Batch size: 5,000 nodes per transaction. Target: ~900K nodes. — *Depends on: T1.3, T1.4* — *Spec: segmentation*
 
-- [ ] T1.6: **Generate Article embeddings** — Embed Article.clean_text using mainguyen9/vietlegal-harrier-0.6b (768d). Store in Article.embedding property. Batch size: 512 articles. Create Neo4j vector index for similarity search. — *Depends on: T1.4, T1.5* — *Spec: segmentation*
+- [ ] T1.6: **Generate Article embeddings** — Embed Article.clean_text using mainguyen9/vietlegal-harrier-0.6b (1024d). Store in Article.embedding property. Batch size: 512 articles. Create Neo4j vector index for similarity search. — *Depends on: T1.4, T1.5* — *Spec: segmentation*
 
 - [ ] T1.7: **Ingest document-level relationships** — Migrate 659K relationships from relationships.parquet. Map Vietnamese relationship types to Neo4j relationship types (CITES, DETAILS, SUPERSEDES, AMENDS, SUPPLEMENTS, etc.). Create both forward and reverse relationships. Validate: both endpoints must exist as Document nodes. — *Depends on: T1.4* — *Spec: segmentation*
 
