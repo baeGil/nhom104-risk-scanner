@@ -9,12 +9,12 @@ Interface contract with Người A (T6.2)
 API format:
   POST {EMBED_SERVICE_URL}/embed
   Body: {"texts": ["text1", "text2", ...]}
-  Response: {"embeddings": [[float, ...], ...]}  # 768-dim each
+  Response: {"embeddings": [[float, ...], ...]}  # 1024-dim each
 
 Interface contract with cross_reference / application layer (Người C)
 ----------------------------------------------------------------------
 After T1.6 completes:
-  - Article.embedding property exists (768-dim float array)
+  - Article.embedding property exists (1024-dim float array)
   - Neo4j vector index "article_embeddings" is created and populated
   - Người C queries this index via:
       CALL db.index.vector.queryNodes("article_embeddings", 20, $query_vector)
@@ -146,7 +146,7 @@ class ArticleEmbedder:
 
     def verify_embeddings(self) -> dict[str, int]:
         """
-        Check that all Article nodes have a 768-dim embedding.
+        Check that all Article nodes have a 1024-dim embedding.
 
         Returns: {"total_articles": N, "with_embedding": N, "missing": N, "wrong_dim": N}
         """
@@ -188,12 +188,12 @@ class ArticleEmbedder:
         Safe to call multiple times (IF NOT EXISTS).
 
         Cypher:
-            CREATE VECTOR INDEX article_embeddings IF NOT EXISTS
-            FOR (a:Article) ON (a.embedding)
-            OPTIONS {indexConfig: {
-              `vector.dimensions`: 768,
-              `vector.similarity_function`: 'cosine'
-            }}
+        CREATE VECTOR INDEX article_embeddings IF NOT EXISTS
+        FOR (a:Article) ON (a.embedding)
+        OPTIONS {indexConfig: {
+          `vector.dimensions`: 1024,
+          `vector.similarity_function`: 'cosine'
+        }}
         """
 
         query = f"""

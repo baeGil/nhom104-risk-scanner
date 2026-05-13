@@ -2,13 +2,13 @@
 T6.2 — Embedding Service
 =========================
 
-FastAPI service cho model vietlegal-harrier-0.6b (768 dims).
+FastAPI service cho model vietlegal-harrier-0.6b (1024 dims).
 Dùng để tạo embeddings cho Articles — phục vụ T1.6 (Người B).
 
 Interface contract với Người B:
   POST /embed
     Request:  {"texts": ["text1", "text2", ...]}
-    Response: {"embeddings": [[0.1, ...], ...], "dims": 768, "count": N}
+    Response: {"embeddings": [[0.1, ...], ...], "dims": 1024, "count": N}
 
   GET /health
     Response: {"status": "ok", "model": "...", "device": "cuda|cpu"}
@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 MODEL_NAME   = os.getenv("EMBED_MODEL", "mainguyen9/vietlegal-harrier-0.6b")
 BATCH_SIZE   = int(os.getenv("EMBED_BATCH_SIZE", "512"))
 MAX_TEXTS    = int(os.getenv("EMBED_MAX_TEXTS", "1000"))
-EXPECTED_DIM = 768
+EXPECTED_DIM = 1024
 
 # ---------------------------------------------------------------------------
 # Global model instance (loaded once at startup)
@@ -95,7 +95,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="VietLegal Embedding Service",
-    description="Embedding service cho mainguyen9/vietlegal-harrier-0.6b (768d)",
+    description="Embedding service cho mainguyen9/vietlegal-harrier-0.6b (1024d)",
     version="0.1.0",
     lifespan=lifespan,
 )
