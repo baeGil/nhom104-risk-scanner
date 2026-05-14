@@ -1,49 +1,20 @@
-Ran command: `git stash pop`
-Ran command: `clear`
-Ran command: `cd ..`
-Ran command: `git pull`
-Ran command: `clear`
-Viewed team-assignment.md:31-46
+Ran command: `g-ThinkBook-14-G6-AHP:~/Desktop/python/VinUni/nhom104-risk-scanner$ clear`
 
-Để biết các bạn của bạn (Người A và Người C) đã làm xong đến đâu và hệ thống đang "khớp" với nhau như thế nào, chúng ta cần kiểm tra các **điểm giao thoa (interfaces)** giữa các giai đoạn.
+Có chứ! Thực ra **chúng ta ĐÃ VÀ ĐANG dùng `UNWIND` để nạp Điều, Khoản, Điểm rồi!** 
 
-Dựa trên tài liệu `team-assignment.md` và các việc bạn vừa làm, đây là cách chúng ta kiểm chứng:
-
-### 1. Kiểm tra phần việc của "Người A" (Data Cleanup & Schema)
-Người A cung cấp "nguyên liệu" đầu vào cho Parser của bạn. Bạn hãy kiểm tra xem các file sau đã tồn tại và có dữ liệu chuẩn chưa:
-
-*   **Dữ liệu HTML sạch:** Kiểm tra xem file `data/content.parquet` đã có cột `clean_html` chưa. Đây là kết quả của Task **T0.4**. Nếu cột này chỉ toàn thẻ `<table>` rác thì chứng tỏ pipeline của Người A chưa xong.
-*   **Neo4j Schema:** Người A phụ trách **T1.4**. Bạn hãy mở Neo4j Browser và chạy lệnh:
-    ```cypher
-    SHOW CONSTRAINTS;
-    SHOW INDEXES;
-    ```
-    Nếu thấy có các constraint trên `Document(id)`, `Article(uid)` và index `article_embeddings` (1024-dim) thì phần nền móng của Người A đã sẵn sàng.
-*   **Quan hệ cấp văn bản (T1.7):** Thử kiểm tra xem các văn bản đã có quan hệ với nhau chưa:
-    ```cypher
-    MATCH ()-[r:AMENDS|CITES]->() RETURN count(r) LIMIT 10;
-    ```
-
-### 2. Cách kiểm tra "Code đang phối hợp tốt" (Integration Testing)
-Để biết Parser của bạn và Dữ liệu của Người A có "ăn rơ" không, bạn hãy chạy script test mà chúng ta vừa viết:
-```bash
-python -m segmentation.test_parser_data
+Nếu bạn mở file `src/segmentation/writer.py` (từ dòng 147), bạn sẽ thấy hàm `_merge_article` của tôi viết như thế này:
+```cypher
+    @staticmethod
+    def _merge_article(tx, batch_data: list[dict]) -> None:
+        query = """
+        UNWIND $batch AS row
+        MATCH (d:Document {id: row.doc_id})
+        MERGE (a:Article {uid: row.uid})
+        SET a.index        = row.index,
+            ...
 ```
+Tương tự cho Chapter, Clause, Point, tôi đều thiết kế dùng `UNWIND` và gom nhóm `batch_size = 5000` (5 nghìn node nạp cùng lúc) để đảm bảo tốc độ cực cao.
 
-**Dấu hiệu phối hợp tốt:**
-1.  **Parser không lỗi:** Đọc được `clean_html` từ Người A mà không bị crash.
-2.  **Writer thành công:** Node `Document` (do Người A tạo) được tìm thấy, và các `Article` (do bạn tạo) được gắn đúng vào `Document` đó qua quan hệ `HAS_ARTICLE`.
-3.  **Embedder thông suốt:** Gọi được đến `EMBED_SERVICE_URL` (do Người A hoặc hạ tầng cung cấp) và nhận về đúng vector 1024 chiều.
+Câu nói lúc nãy của tôi: *"dùng UNWIND nạp thẳng thay vì nạp lẻ tẻ"* là tôi đang so sánh với file `full_ingest_neo4j.py` cũ. Trong file cũ đó (khi chưa tách ra), cứ mỗi vòng lặp `for r in ext_result.modification_refs:`, lệnh `session.execute_write` lại gọi tới cơ sở dữ liệu **1 lần cho 1 quan hệ** (bị nạp lẻ tẻ). Do đó tách ra dùng `UNWIND` sẽ giúp giai đoạn 2 nhanh bằng với tốc độ của giai đoạn 1.
 
-### 3. Trạng thái hiện tại của Team (Ước tính)
-Dựa trên `tasks.md` và code hiện tại:
-
-| Giai đoạn | Trạng thái | Người phụ trách | Ghi chú |
-| :--- | :--- | :--- | :--- |
-| **Phase 0 (Cleanup)** | 🟢 Hoàn thành | Người A | Đã có dữ liệu sạch để bạn Parse. |
-| **Phase 1 (Segmentation)** | 🟢 Hoàn thành | **Bạn (Người B)** | Đã bóc tách xong Điều/Khoản và nạp vào Neo4j. |
-| **Phase 2 (Cross-Ref)** | 🟡 Đang làm | Người C | Sẽ dùng `uid` bạn tạo ra để nối các tham chiếu cụ thể. |
-
-**Lời khuyên:** Bạn nên thử `MATCH (a:Article) RETURN a LIMIT 5` trong Neo4j. Nếu thấy thuộc tính `section` (Mục) và `embedding` đã đầy đủ, nghĩa là code của bạn đã phối hợp cực tốt với Schema và Embedding Service!
-
-Bạn có muốn tôi viết một script nhỏ để **tự động kiểm tra sức khỏe (Health Check)** toàn bộ các điểm nối này không?
+Bạn cứ để script Giai đoạn 1 chạy tiếp nhé (như tôi thấy trên hệ thống là nó đang chạy được hơn 1 phút rồi, chuẩn bị ra file Parquet đấy)! Chạy xong bạn gõ lệnh ở Giai đoạn 2 là hoàn hảo.

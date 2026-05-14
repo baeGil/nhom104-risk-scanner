@@ -1,10 +1,10 @@
 from pandas.io import html
 from email import charset
 import pandas as pd
-from segmentation.parser import LegalDocumentParser
-from segmentation.confidence import ConfidenceScorer
-from segmentation.writer import SegmentWriter
-from segmentation.embedder import ArticleEmbedder
+from src.segmentation.parser import LegalDocumentParser
+from src.segmentation.confidence import ConfidenceScorer
+from src.segmentation.writer import SegmentWriter
+from src.segmentation.embedder import ArticleEmbedder
 from neo4j import GraphDatabase
 
 def test_parser_with_real_data():
@@ -17,6 +17,7 @@ def test_parser_with_real_data():
     
     metadata_df = pd.read_parquet(metadata_path)
     content_df = pd.read_parquet(content_path)
+
     
     # Giả sử cột khóa chính là 'id' (hoặc 'doc_id')
     doc_id_col = 'id' if 'id' in metadata_df.columns else 'doc_id'
@@ -24,9 +25,9 @@ def test_parser_with_real_data():
     
     metadata_df[doc_id_col] = metadata_df[doc_id_col].astype(str)
     content_df[content_id_col] = content_df[content_id_col].astype(str)
-    
-    # 2. Lọc mỗi loại văn bản 1 sample
-    html_col = 'clean_html' if 'clean_html' in content_df.columns else 'content_html'
+
+    # 2. Lọc sample content
+    html_col = 'content_html'
     
     # Kết hợp metadata và content để dễ filter
     merged_df = pd.merge(
@@ -36,16 +37,23 @@ def test_parser_with_real_data():
         right_on=doc_id_col,
         how='inner'
     )
+
+    # Bạn có thể cung cấp list ID cụ thể ở đây, ví dụ: target_doc_ids = ["26135", "26136"]
+    target_doc_ids = ['178737'] 
     
-    target_types = ["Luật", "Bộ luật", "Nghị định", "Thông tư"]
-    filtered_df = merged_df[merged_df['loai_van_ban'].isin(target_types)].copy()
-    
-    if 'ngay_ban_hanh' in filtered_df.columns:
-        years = pd.to_datetime(filtered_df['ngay_ban_hanh'], errors='coerce').dt.year
-        filtered_df = filtered_df[years > 2000]
-    
-    # Lấy 1 văn bản cho mỗi loại
-    sample_contents = filtered_df.groupby('loai_van_ban').head(1)
+    if target_doc_ids:
+        print(f"Đang lấy sample cho các ID: {target_doc_ids}")
+        sample_contents = merged_df[merged_df[content_id_col].isin(target_doc_ids)].copy()
+    else:
+        target_types = ["Luật", "Bộ luật", "Nghị định", "Thông tư"]
+        filtered_df = merged_df[merged_df['loai_van_ban'].isin(target_types)].copy()
+        
+        if 'ngay_ban_hanh' in filtered_df.columns:
+            years = pd.to_datetime(filtered_df['ngay_ban_hanh'], errors='coerce').dt.year
+            filtered_df = filtered_df[years > 2000]
+        
+        # Lấy 1 văn bản cho mỗi loại
+        sample_contents = filtered_df.groupby('loai_van_ban').head(1)
     
     # 3. Khởi tạo Parser và Scorer
     parser = LegalDocumentParser()

@@ -194,13 +194,13 @@ class LegalDocumentParser:
         soup = BeautifulSoup(clean_html, 'html.parser')
         
         # Find all block-level elements
-        elements = soup.find_all(['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+        block_tags_list = ['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+        elements = soup.find_all(block_tags_list)
         
         # Filter out elements that contain other block elements to avoid text duplication
-        block_tags = {'p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'}
         leaf_elements = []
         for el in elements:
-            has_block_child = any(child.name in block_tags for child in el.find_all(True))
+            has_block_child = el.find(block_tags_list) is not None
             if not has_block_child:
                 leaf_elements.append(el)
         
@@ -211,6 +211,7 @@ class LegalDocumentParser:
         current_khoan: Optional[Segment] = None
         current_diem: Optional[Segment] = None
         
+        in_quote = False
         for el in leaf_elements:
             raw_html = str(el)
             text = el.get_text(separator=' ', strip=True)
@@ -225,6 +226,36 @@ class LegalDocumentParser:
             # Tránh lỗi nhận diện nhầm "CHỦ TỊCH" / "BỘ TRƯỞNG" ở phần tiêu đề đầu văn bản.
             if result.article_count > 0 and _is_closing(text):
                 break
+
+            # 0. Quote handling (T1.1 improvement)
+            # If we are inside a quoted block, skip structural detection (Điều, Khoản, Điểm)
+            # to avoid false positives when one article quotes another.
+            quote_marks = ['"', '“', '”', '«', '»']
+            if in_quote:
+                # Toggle if we see an odd number of quotes (closing the block)
+                count = sum(text.count(c) for c in quote_marks)
+                if count % 2 != 0:
+                    in_quote = False
+                
+                # Append to current active node
+                active_node = current_diem or current_khoan or current_dieu or current_chuong or current_phan
+                if active_node:
+                    active_node.text_content += f"\n{raw_html}"
+                    active_node.clean_text += f"\n{text}"
+                continue
+
+            # Check if this segment starts a quote (usually block quote)
+            if text.startswith('"') or text.startswith('“') or text.startswith('«'):
+                count = sum(text.count(c) for c in quote_marks)
+                if count % 2 != 0:
+                    in_quote = True
+                
+                # Append to current active node and skip structural checks for this line
+                active_node = current_diem or current_khoan or current_dieu or current_chuong or current_phan
+                if active_node:
+                    active_node.text_content += f"\n{raw_html}"
+                    active_node.clean_text += f"\n{text}"
+                continue
                 
             # 1. Phần
             if RE_PHAN.match(text) and "luật" in loai_van_ban.lower():
@@ -347,6 +378,11 @@ class LegalDocumentParser:
             if active_node:
                 active_node.text_content += f"\n{raw_html}"
                 active_node.clean_text += f"\n{text}"
+                
+                # Check if a quote started in the middle of this content segment
+                count = sum(text.count(c) for c in ['"', '“', '”', '«', '»'])
+                if count % 2 != 0:
+                    in_quote = True
                 
         return result
 

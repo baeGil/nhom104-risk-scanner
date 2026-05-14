@@ -21,6 +21,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Optional
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ def normalize(raw: str, loai_van_ban: str = "") -> Optional[str]:
         return None
 
     # Nếu loai_van_ban cung cấp, ưu tiên prefix từ đó
-    prefix = LOAI_VAN_BAN_PREFIX.get((loai_van_ban or "").strip(), parsed["type"] or "UNKNOWN")
+    prefix = LOAI_VAN_BAN_PREFIX.get(str(loai_van_ban).strip() if loai_van_ban and not pd.isna(loai_van_ban) else "", parsed["type"] or "UNKNOWN")
 
     return f"{prefix}-{parsed['number']}-{parsed['year']}"
 
