@@ -1,0 +1,742 @@
+[
+  {
+    "linh_vuc": "Dân sự & Hợp đồng",
+    "van_ban": [
+      {
+        "ten": "Bộ luật Dân sự",
+        "so_hieu": "91/2015/QH13",
+        "loai": "Bộ luật",
+        "uu_tien": "P1",
+        "mo_ta": "Nền tảng mọi giao dịch: hợp đồng, tài sản, thừa kế, bồi thường, đại diện, ủy quyền. Bắt buộc tuyệt đối."
+      },
+      {
+        "ten": "Bộ luật Tố tụng Dân sự",
+        "so_hieu": "92/2015/QH13",
+        "loai": "Bộ luật",
+        "uu_tien": "P2",
+        "mo_ta": "Quy trình khởi kiện, giải quyết tranh chấp tại tòa dân sự, thời hiệu khởi kiện."
+      },
+      {
+        "ten": "Luật Trọng tài Thương mại",
+        "so_hieu": "54/2010/QH12",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Giải quyết tranh chấp bằng trọng tài — thường được dẫn chiếu trong điều khoản giải quyết tranh chấp của hợp đồng."
+      },
+      {
+        "ten": "Luật Giao dịch Điện tử",
+        "so_hieu": "51/2005/QH11 (sửa đổi 2023)",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Giá trị pháp lý hợp đồng điện tử, chữ ký số, hợp đồng click-wrap. Bắt buộc cho app pháp lý số."
+      },
+      {
+        "ten": "Luật Thi hành án Dân sự",
+        "so_hieu": "26/2008/QH12 (sửa đổi 2014, 2022)",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Quy trình cưỡng chế thi hành bản án, quyết định của tòa. Người dùng thường hỏi sau khi thắng kiện nhưng bên kia không thực hiện hợp đồng."
+      },
+      {
+        "ten": "Luật Hòa giải, Đối thoại tại Tòa án",
+        "so_hieu": "58/2020/QH14",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Thủ tục hòa giải trước khi xét xử — giảm tải tòa án, tiết kiệm chi phí tranh chấp."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Thương mại & Kinh doanh",
+    "van_ban": [
+      {
+        "ten": "Luật Thương mại",
+        "so_hieu": "36/2005/QH11",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Mua bán hàng hóa, dịch vụ, đại lý, nhượng quyền, logistics, phân phối. Cực phổ biến trong hợp đồng B2B."
+      },
+      {
+        "ten": "Luật Doanh nghiệp",
+        "so_hieu": "59/2020/QH14",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Thành lập, quản trị, giải thể DN. Nền tảng xác định tư cách pháp lý ký hợp đồng."
+      },
+      {
+        "ten": "Luật Đầu tư",
+        "so_hieu": "61/2020/QH14",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Ngành nghề kinh doanh có điều kiện, ưu đãi đầu tư, thủ tục cấp phép."
+      },
+      {
+        "ten": "Luật Đấu thầu",
+        "so_hieu": "22/2023/QH15",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Hợp đồng mua sắm công, lựa chọn nhà thầu trong dự án nhà nước."
+      },
+      {
+        "ten": "Luật Phá sản",
+        "so_hieu": "51/2014/QH13",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Xử lý nợ, phá sản DN — liên quan điều khoản thanh lý hợp đồng khi đối tác mất khả năng thanh toán."
+      },
+      {
+        "ten": "Luật Kế toán",
+        "so_hieu": "88/2015/QH13",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Chứng từ kế toán, hóa đơn, báo cáo tài chính — nền tảng hợp đồng kiểm toán, kế toán dịch vụ."
+      },
+      {
+        "ten": "Luật Cạnh tranh",
+        "so_hieu": "23/2018/QH14",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Chống độc quyền, cạnh tranh không lành mạnh, tập trung kinh tế — liên quan điều khoản exclusivity trong hợp đồng."
+      },
+      {
+        "ten": "Luật Hợp tác xã",
+        "so_hieu": "17/2023/QH15",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Tổ chức, hoạt động hợp tác xã, liên hiệp hợp tác xã."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Thương mại Điện tử",
+    "van_ban": [
+      {
+        "ten": "Nghị định về Thương mại Điện tử",
+        "so_hieu": "52/2013/NĐ-CP (sửa đổi NĐ 85/2021)",
+        "loai": "Nghị định",
+        "uu_tien": "P1",
+        "mo_ta": "Điều kiện kinh doanh TMĐT, hợp đồng mua bán online, trách nhiệm sàn TMĐT, website bán hàng. Cực quan trọng — hàng triệu giao dịch mỗi ngày."
+      },
+      {
+        "ten": "Nghị định quản lý thuế TMĐT",
+        "so_hieu": "117/2025/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P1",
+        "mo_ta": "Thuế hộ/cá nhân kinh doanh trên sàn TMĐT, nền tảng số. Hiệu lực 1/7/2025."
+      },
+      {
+        "ten": "Luật Bảo vệ Dữ liệu Cá nhân",
+        "so_hieu": "91/2025/QH15",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Thu thập, xử lý, chuyển dữ liệu xuyên biên giới, phạt đến 5% doanh thu. Quan trọng cho hợp đồng SaaS, app, TMĐT."
+      },
+      {
+        "ten": "Luật An ninh Mạng",
+        "so_hieu": "24/2018/QH14",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Bảo vệ dữ liệu, lưu trữ dữ liệu tại VN, nghĩa vụ cung cấp thông tin — ảnh hưởng hợp đồng công nghệ."
+      },
+      {
+        "ten": "Nghị định xử phạt vi phạm CNTT-TT",
+        "so_hieu": "15/2020/NĐ-CP (sửa đổi NĐ 14/2022)",
+        "loai": "Nghị định",
+        "uu_tien": "P2",
+        "mo_ta": "Mức phạt vi phạm trong lĩnh vực viễn thông, internet, TMĐT, báo chí điện tử."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Lao động & Bảo hiểm",
+    "van_ban": [
+      {
+        "ten": "Bộ luật Lao động",
+        "so_hieu": "45/2019/QH14",
+        "loai": "Bộ luật",
+        "uu_tien": "P1",
+        "mo_ta": "Hợp đồng lao động, tiền lương, thử việc, sa thải, kỷ luật, thôi việc. Top 3 văn bản được hỏi nhiều nhất."
+      },
+      {
+        "ten": "Luật Bảo hiểm Xã hội",
+        "so_hieu": "41/2024/QH15",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "BHXH bắt buộc & tự nguyện, lương hưu, thai sản, ốm đau. Hiệu lực 1/7/2025 với nhiều thay đổi lớn."
+      },
+      {
+        "ten": "Luật Việc làm",
+        "so_hieu": "38/2013/QH13",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Bảo hiểm thất nghiệp, trợ cấp mất việc, dịch vụ việc làm."
+      },
+      {
+        "ten": "Luật Bảo hiểm Y tế",
+        "so_hieu": "25/2008/QH12 (sửa đổi)",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Mức đóng, quyền lợi BHYT — thường đi kèm hợp đồng lao động."
+      },
+      {
+        "ten": "Luật An toàn, Vệ sinh Lao động",
+        "so_hieu": "84/2015/QH13",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Điều kiện làm việc an toàn, tai nạn lao động, bệnh nghề nghiệp — cần có trong hợp đồng sản xuất, xây dựng."
+      },
+      {
+        "ten": "Nghị định 145/2020/NĐ-CP",
+        "so_hieu": "145/2020/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P1",
+        "mo_ta": "Hướng dẫn chi tiết BLLĐ: thử việc, thời giờ làm việc, nghỉ ngơi, xử lý kỷ luật lao động. Phải có."
+      },
+      {
+        "ten": "Nghị định 12/2022/NĐ-CP",
+        "so_hieu": "12/2022/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P2",
+        "mo_ta": "Xử phạt vi phạm hành chính về lao động, BHXH — tra cứu mức phạt cụ thể."
+      },
+      {
+        "ten": "Nghị định 337/2025/NĐ-CP",
+        "so_hieu": "337/2025/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P2",
+        "mo_ta": "Quy định về hợp đồng lao động điện tử. Khuyến khích chuyển đổi từ bản giấy sang bản số từ 1/7/2026."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Bảo hiểm Thương mại",
+    "van_ban": [
+      {
+        "ten": "Luật Kinh doanh Bảo hiểm",
+        "so_hieu": "08/2022/QH15",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Bảo hiểm nhân thọ, phi nhân thọ, bảo hiểm tài sản, trách nhiệm dân sự. Quyền lợi, điều kiện hợp đồng bảo hiểm thương mại."
+      },
+      {
+        "ten": "Nghị định 46/2023/NĐ-CP",
+        "so_hieu": "46/2023/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P2",
+        "mo_ta": "Hướng dẫn chi tiết Luật Kinh doanh Bảo hiểm 2022: sản phẩm bảo hiểm, phí, bồi thường."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Đất đai & Bất động sản",
+    "van_ban": [
+      {
+        "ten": "Luật Đất đai",
+        "so_hieu": "31/2024/QH15",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Quyền sử dụng đất, thu hồi, bồi thường, cấp sổ đỏ, định giá đất. Nhiều thay đổi lớn 2024 — bắt buộc phải có phiên bản mới nhất."
+      },
+      {
+        "ten": "Luật Nhà ở",
+        "so_hieu": "27/2023/QH15",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Mua bán, cho thuê nhà ở, nhà xã hội, sở hữu nhà người nước ngoài."
+      },
+      {
+        "ten": "Luật Kinh doanh Bất động sản",
+        "so_hieu": "29/2023/QH15",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Hợp đồng mua bán, chuyển nhượng, cho thuê BĐS. Ghi đúng giá thực tế, bắt buộc từ 8/2024."
+      },
+      {
+        "ten": "Luật Xây dựng",
+        "so_hieu": "50/2014/QH13 (sửa đổi)",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Hợp đồng xây dựng, cấp phép, giám sát thi công, nghiệm thu công trình."
+      },
+      {
+        "ten": "Luật Quy hoạch đô thị",
+        "so_hieu": "30/2009/QH12",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Quy hoạch, cấp phép xây dựng, điều chỉnh quy hoạch."
+      },
+      {
+        "ten": "Nghị định 95/2024/NĐ-CP",
+        "so_hieu": "95/2024/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P1",
+        "mo_ta": "Hướng dẫn chi tiết Luật Nhà ở 2023: nhà ở xã hội, điều kiện mua nhà, hợp đồng mua bán nhà."
+      },
+      {
+        "ten": "Nghị định 96/2024/NĐ-CP",
+        "so_hieu": "96/2024/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P1",
+        "mo_ta": "Hướng dẫn chi tiết Luật Kinh doanh BĐS 2023: môi giới, sàn giao dịch, hợp đồng chuyển nhượng."
+      },
+      {
+        "ten": "Nghị định 37/2015/NĐ-CP",
+        "so_hieu": "37/2015/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P1",
+        "mo_ta": "Quy định chi tiết hợp đồng xây dựng: điều khoản bắt buộc, thanh toán, nghiệm thu, bảo hành."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Thuế & Tài chính",
+    "van_ban": [
+      {
+        "ten": "Luật Thuế Thu nhập Cá nhân",
+        "so_hieu": "04/2007/QH12 (sửa đổi 2025)",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Thuế TNCN từ lương, kinh doanh, chuyển nhượng BĐS, chứng khoán, quà tặng."
+      },
+      {
+        "ten": "Luật Thuế Thu nhập Doanh nghiệp",
+        "so_hieu": "14/2008/QH12 (sửa đổi)",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Thuế TNDN, chi phí được trừ, ưu đãi thuế cho dự án đầu tư."
+      },
+      {
+        "ten": "Luật Thuế Giá trị Gia tăng",
+        "so_hieu": "13/2008/QH12 (sửa đổi)",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Thuế VAT 0%/5%/8%/10%, hóa đơn điện tử, hàng hóa miễn thuế. Ảnh hưởng trực tiếp mọi hợp đồng kinh doanh."
+      },
+      {
+        "ten": "Luật Quản lý Thuế",
+        "so_hieu": "38/2019/QH14",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Đăng ký thuế, khai nộp, thanh tra, xử phạt, hoàn thuế. Nền tảng toàn bộ hệ thống thuế."
+      },
+      {
+        "ten": "Luật Thuế Sử dụng đất Phi nông nghiệp",
+        "so_hieu": "48/2010/QH12",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Thuế nhà đất, căn hộ, tài sản gắn liền với đất phi nông nghiệp."
+      },
+      {
+        "ten": "Luật Thuế Tiêu thụ Đặc biệt",
+        "so_hieu": "27/2008/QH12 (sửa đổi 2025)",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Thuế TTĐB cho rượu bia, thuốc lá, xe hơi, xăng dầu — liên quan hợp đồng nhập khẩu, phân phối hàng đặc biệt."
+      },
+      {
+        "ten": "Nghị định 123/2020/NĐ-CP",
+        "so_hieu": "123/2020/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P1",
+        "mo_ta": "Hóa đơn, chứng từ điện tử — bắt buộc từ 7/2022. Liên quan trực tiếp mọi hợp đồng có giao dịch tài chính."
+      },
+      {
+        "ten": "Nghị định 68/2026/NĐ-CP",
+        "so_hieu": "68/2026/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P1",
+        "mo_ta": "Chính sách thuế & quản lý thuế hộ/cá nhân kinh doanh, bao gồm cho thuê BĐS. Hiệu lực 3/2026."
+      },
+      {
+        "ten": "Thông tư 80/2021/TT-BTC",
+        "so_hieu": "80/2021/TT-BTC",
+        "loai": "Thông tư",
+        "uu_tien": "P2",
+        "mo_ta": "Hướng dẫn khai thuế, nộp thuế, quyết toán thuế TNCN hàng năm."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Hình sự & Tố tụng",
+    "van_ban": [
+      {
+        "ten": "Bộ luật Hình sự",
+        "so_hieu": "100/2015/QH13 (sửa đổi 2017)",
+        "loai": "Bộ luật",
+        "uu_tien": "P1",
+        "mo_ta": "Tội phạm, hình phạt — quan trọng khi rà soát điều khoản hợp đồng có yếu tố lừa đảo, gian lận, chiếm đoạt tài sản."
+      },
+      {
+        "ten": "Bộ luật Tố tụng Hình sự",
+        "so_hieu": "101/2015/QH13",
+        "loai": "Bộ luật",
+        "uu_tien": "P2",
+        "mo_ta": "Trình tự điều tra, truy tố, xét xử — cần khi người dùng hỏi về quyền trong quá trình bị điều tra."
+      },
+      {
+        "ten": "Luật Xử lý Vi phạm Hành chính",
+        "so_hieu": "15/2012/QH13 (sửa đổi)",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Mức phạt hành chính, thủ tục xử phạt, thời hiệu — tham chiếu khi tra cứu mức phạt vi phạm hợp đồng."
+      },
+      {
+        "ten": "Luật Tố tụng Hành chính",
+        "so_hieu": "93/2015/QH13",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Khởi kiện quyết định hành chính — khi tranh chấp với cơ quan nhà nước liên quan đến hợp đồng, đất đai."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Khiếu nại, Tố cáo & Thanh tra",
+    "van_ban": [
+      {
+        "ten": "Luật Khiếu nại",
+        "so_hieu": "02/2011/QH13",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Thủ tục khiếu nại quyết định hành chính, quyết định kỷ luật — người dân thường hỏi khi bất đồng với cơ quan nhà nước về đất đai, thuế, lao động."
+      },
+      {
+        "ten": "Luật Tố cáo",
+        "so_hieu": "25/2018/QH14",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Quyền tố cáo vi phạm pháp luật của cán bộ, công chức, tổ chức. Bảo vệ người tố cáo."
+      },
+      {
+        "ten": "Luật Thanh tra",
+        "so_hieu": "11/2022/QH15",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Quy trình thanh tra hành chính, thanh tra chuyên ngành — người dùng cần biết khi bị thanh tra thuế, lao động, xây dựng."
+      },
+      {
+        "ten": "Luật Tiếp công dân",
+        "so_hieu": "42/2013/QH13",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Quyền gặp cơ quan nhà nước để phản ánh, kiến nghị, khiếu nại."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Môi trường",
+    "van_ban": [
+      {
+        "ten": "Luật Bảo vệ Môi trường",
+        "so_hieu": "72/2020/QH14",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Đánh giá tác động môi trường (ĐTM) trong dự án đầu tư, xây dựng. Điều khoản môi trường ngày càng phổ biến trong hợp đồng FDI, xây dựng, sản xuất."
+      },
+      {
+        "ten": "Nghị định 08/2022/NĐ-CP",
+        "so_hieu": "08/2022/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P3",
+        "mo_ta": "Hướng dẫn chi tiết Luật BVMT 2020: phân loại chất thải, giấy phép môi trường."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "An toàn Thực phẩm",
+    "van_ban": [
+      {
+        "ten": "Luật An toàn Thực phẩm",
+        "so_hieu": "55/2010/QH12",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Điều kiện kinh doanh thực phẩm, giấy phép vệ sinh ATTP, nhãn hàng, hợp đồng sản xuất/phân phối thực phẩm — quan trọng cho lĩnh vực F&B, nhà hàng, thực phẩm chức năng."
+      },
+      {
+        "ten": "Nghị định 15/2018/NĐ-CP",
+        "so_hieu": "15/2018/NĐ-CP",
+        "loai": "Nghị định",
+        "uu_tien": "P2",
+        "mo_ta": "Hướng dẫn chi tiết Luật ATTP: điều kiện cơ sở sản xuất, kinh doanh, công bố sản phẩm."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Sở hữu Trí tuệ & Công nghệ",
+    "van_ban": [
+      {
+        "ten": "Luật Sở hữu Trí tuệ",
+        "so_hieu": "50/2005/QH11 (sửa đổi 2022, 2025)",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Quyền tác giả, nhãn hiệu, sáng chế, kiểu dáng công nghiệp, bảo mật thông tin — cốt lõi hợp đồng IT, phần mềm, sáng tạo nội dung."
+      },
+      {
+        "ten": "Luật Chuyển đổi Số",
+        "so_hieu": "(2025/QH15)",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Khung pháp lý chuyển đổi số quốc gia, giao dịch điện tử liên thông."
+      },
+      {
+        "ten": "Luật Chuyển giao Công nghệ",
+        "so_hieu": "07/2017/QH14 (sửa đổi 2025)",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Hợp đồng chuyển giao công nghệ, nhượng quyền công nghệ, điều khoản bảo mật kỹ thuật."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Hôn nhân & Gia đình",
+    "van_ban": [
+      {
+        "ten": "Luật Hôn nhân và Gia đình",
+        "so_hieu": "52/2014/QH13",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Kết hôn, ly hôn, tài sản vợ chồng, nuôi con, thừa kế — phổ biến nhất với người dùng cá nhân."
+      },
+      {
+        "ten": "Luật Nuôi con nuôi",
+        "so_hieu": "52/2010/QH12",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Điều kiện, thủ tục nhận nuôi con nuôi trong và ngoài nước."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Tín dụng, Ngân hàng & Chứng khoán",
+    "van_ban": [
+      {
+        "ten": "Luật Các Tổ chức Tín dụng",
+        "so_hieu": "32/2024/QH15",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Hoạt động ngân hàng, cho vay, bảo lãnh, cầm cố, thế chấp — nền tảng hợp đồng vay vốn ngân hàng."
+      },
+      {
+        "ten": "Luật Ngân hàng Nhà nước",
+        "so_hieu": "46/2010/QH12",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Chính sách tiền tệ, quản lý ngoại hối, lãi suất."
+      },
+      {
+        "ten": "Luật Chứng khoán",
+        "so_hieu": "54/2019/QH14 (sửa đổi)",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Phát hành, giao dịch chứng khoán, bảo vệ nhà đầu tư, công ty đại chúng."
+      },
+      {
+        "ten": "Luật Phòng chống Rửa tiền",
+        "so_hieu": "14/2022/QH15",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Nghĩa vụ nhận biết khách hàng (KYC), báo cáo giao dịch đáng ngờ — liên quan hợp đồng tài chính giá trị lớn, ngân hàng, bất động sản."
+      },
+      {
+        "ten": "Nghị định 153/2020/NĐ-CP",
+        "so_hieu": "153/2020/NĐ-CP (sửa đổi NĐ 65/2022)",
+        "loai": "Nghị định",
+        "uu_tien": "P2",
+        "mo_ta": "Phát hành trái phiếu doanh nghiệp riêng lẻ — quan trọng sau vụ Tân Hoàng Minh, SCB."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Phòng chống Tham nhũng",
+    "van_ban": [
+      {
+        "ten": "Luật Phòng, chống Tham nhũng",
+        "so_hieu": "36/2018/QH14",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Kê khai tài sản, công khai minh bạch, xung đột lợi ích — quan trọng với hợp đồng đấu thầu, mua sắm công, hợp đồng nhà nước."
+      },
+      {
+        "ten": "Luật Phòng, chống Tham nhũng (2025)",
+        "so_hieu": "(sửa đổi 2025)",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Phiên bản sửa đổi 2025 với ngưỡng kê khai tài sản mới: từ 150 triệu đồng/tài sản."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Hành chính, Hộ tịch & Công chứng",
+    "van_ban": [
+      {
+        "ten": "Luật Căn cước",
+        "so_hieu": "26/2023/QH15",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "CCCD, căn cước điện tử, định danh công dân — xác minh danh tính ký hợp đồng, tài khoản ngân hàng."
+      },
+      {
+        "ten": "Luật Công chứng",
+        "so_hieu": "53/2024/QH15",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Công chứng hợp đồng, chứng thực chữ ký — bắt buộc với hợp đồng chuyển nhượng BĐS, thừa kế."
+      },
+      {
+        "ten": "Luật Hộ tịch",
+        "so_hieu": "60/2014/QH13",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Khai sinh, khai tử, đăng ký kết hôn — chứng minh nhân thân trong hợp đồng dân sự, thừa kế."
+      },
+      {
+        "ten": "Luật Luật sư",
+        "so_hieu": "65/2006/QH11 (sửa đổi)",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Điều kiện hành nghề luật sư, dịch vụ pháp lý, công ty luật."
+      },
+      {
+        "ten": "Luật Bổ trợ Tư pháp",
+        "so_hieu": "69/2006/QH11 (sửa đổi)",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Luật sư, công chứng, giám định tư pháp, đấu giá tài sản."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Y tế & Giáo dục",
+    "van_ban": [
+      {
+        "ten": "Luật Khám bệnh, Chữa bệnh",
+        "so_hieu": "15/2023/QH15",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Điều kiện hành nghề, quyền bệnh nhân, hợp đồng khám chữa bệnh, dịch vụ y tế."
+      },
+      {
+        "ten": "Luật Dược",
+        "so_hieu": "105/2016/QH13 (sửa đổi)",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Kinh doanh dược phẩm, nhà thuốc, nhập khẩu thuốc."
+      },
+      {
+        "ten": "Luật Giáo dục",
+        "so_hieu": "43/2019/QH14 (sửa đổi)",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Quyền học sinh, sinh viên, hợp đồng đào tạo, học phí, học bổng."
+      },
+      {
+        "ten": "Luật Giáo dục Đại học",
+        "so_hieu": "34/2018/QH14",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Tổ chức, quản lý trường đại học, tự chủ đại học."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Bảo vệ Người tiêu dùng",
+    "van_ban": [
+      {
+        "ten": "Luật Bảo vệ Quyền lợi Người tiêu dùng",
+        "so_hieu": "19/2023/QH15",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Trách nhiệm bên bán, hoàn trả, bảo hành, điều khoản hợp đồng theo mẫu bất lợi — rất quan trọng cho hợp đồng B2C."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Giao thông & Vận tải",
+    "van_ban": [
+      {
+        "ten": "Luật Trật tự An toàn Giao thông Đường bộ",
+        "so_hieu": "36/2024/QH15",
+        "loai": "Luật",
+        "uu_tien": "P1",
+        "mo_ta": "Giấy phép lái xe, trừ điểm bằng lái, vi phạm giao thông. Hiệu lực 1/1/2025 — người hỏi rất nhiều."
+      },
+      {
+        "ten": "Luật Đường bộ",
+        "so_hieu": "35/2024/QH15",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Hạ tầng đường bộ, hợp đồng vận tải hành khách, hàng hóa."
+      },
+      {
+        "ten": "Luật Hàng không Dân dụng",
+        "so_hieu": "66/2006/QH11 (sửa đổi)",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Hợp đồng vận chuyển hàng không, quyền hành khách, bồi thường trễ chuyến."
+      },
+      {
+        "ten": "Bộ luật Hàng hải",
+        "so_hieu": "95/2015/QH13",
+        "loai": "Bộ luật",
+        "uu_tien": "P3",
+        "mo_ta": "Hợp đồng vận chuyển hàng hải, thuê tàu, bảo hiểm hàng hải."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Hải quan & Xuất nhập khẩu",
+    "van_ban": [
+      {
+        "ten": "Luật Hải quan",
+        "so_hieu": "54/2014/QH13",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Thủ tục thông quan, kiểm tra hàng hóa xuất nhập khẩu — quan trọng cho hợp đồng mua bán quốc tế, logistics."
+      },
+      {
+        "ten": "Luật Thuế Xuất khẩu, Thuế Nhập khẩu",
+        "so_hieu": "107/2016/QH13",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Biểu thuế XNK, ưu đãi thuế theo FTA — liên quan hợp đồng mua bán quốc tế, điều khoản giá CIF/FOB."
+      },
+      {
+        "ten": "Luật Quản lý Ngoại thương",
+        "so_hieu": "05/2017/QH14",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Chính sách XNK, phòng vệ thương mại, xuất xứ hàng hóa."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Năng lượng & Viễn thông",
+    "van_ban": [
+      {
+        "ten": "Luật Điện lực",
+        "so_hieu": "28/2004/QH11 (sửa đổi 2024)",
+        "loai": "Luật",
+        "uu_tien": "P2",
+        "mo_ta": "Hợp đồng mua bán điện, giá điện, kết nối lưới — liên quan hợp đồng thuê mặt bằng, nhà xưởng, sản xuất."
+      },
+      {
+        "ten": "Luật Viễn thông",
+        "so_hieu": "24/2023/QH15",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Hợp đồng dịch vụ viễn thông, Internet, điều kiện kết nối."
+      }
+    ]
+  },
+  {
+    "linh_vuc": "Quảng cáo & Nhãn hiệu",
+    "van_ban": [
+      {
+        "ten": "Luật Quảng cáo",
+        "so_hieu": "16/2012/QH13",
+        "loai": "Luật",
+        "uu_tien": "P3",
+        "mo_ta": "Điều kiện quảng cáo, cấm quảng cáo sai sự thật — liên quan hợp đồng marketing, agency, KOL."
+      }
+    ]
+  }
+]
