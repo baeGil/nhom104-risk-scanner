@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import logging
 import re
+import json
 
 from src.segmentation.parser import LegalDocumentParser
 from src.segmentation.writer import SegmentWriter
@@ -35,11 +36,16 @@ def run_unified_pipeline():
     ]
     logger.info(f"Tổng số văn bản sau khi lọc: {len(filtered_meta)}")
     
-    # Build lookup table for extractor
-    lookup = {}
-    for _, row in filtered_meta.iterrows():
-        if pd.notna(row.get('normalized_so_ky_hieu')):
-            lookup[row['normalized_so_ky_hieu']] = str(row['id'])
+    # Load lookup table from JSON (Centralized for all scripts)
+    lookup_path = "data/so_ky_hieu_lookup.json"
+    if not os.path.exists(lookup_path):
+        logger.info("Không thấy bảng tra cứu JSON, đang tạo mới...")
+        from src.data_pipeline.build_lookup_json import build
+        build()
+        
+    with open(lookup_path, "r", encoding="utf-8") as f:
+        lookup = json.load(f)
+    logger.info(f"Đã nạp bảng tra cứu từ JSON ({len(lookup)} mục).")
     
     extractor = CrossReferenceExtractor(lookup_table=lookup)
     
@@ -58,7 +64,7 @@ def run_unified_pipeline():
     external_refs_data = []
     modifies_refs_data = []
     
-    doc_id = '146983'
+    doc_id = '153913'
     meta_row = filtered_meta[filtered_meta['id'] == doc_id]
     if meta_row.empty:
         logger.error(f"Văn bản ID {doc_id} không tìm thấy trong metadata.")
@@ -86,6 +92,7 @@ def run_unified_pipeline():
             clean_html=html,
             loai_van_ban=row.get('loai_van_ban', '')
         )
+        logger.info(f"Phân tích segmentation: {len(result.segments)} segments")
         
         # 2.3 & 2.4 Stage 4: Cross-Reference & Context-Aware Extraction
         logger.info(f"Start stage 4: Cross-Reference & Context-Aware Extraction...")

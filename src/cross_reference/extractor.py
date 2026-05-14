@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # ===========================================================================
 
 # ── Internal references ─────────────────────────────────────────────────────
-_RE_DIEU = r"[ĐĐð][iíì]ều\s+(\d+[a-zđ]?)"
+_RE_DIEU = r"[ĐĐð][iíì]ều\s+(\d+[a-zđ]?)(?!\w)"
 
 _INTERNAL_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("diem_khoan_dieu", re.compile(r"điểm\s+([a-zđ])\s+khoản\s+(\d+)\s+" + _RE_DIEU, re.IGNORECASE | re.UNICODE)),
@@ -49,15 +49,15 @@ _MOD_ACTION_MAP: list[tuple[ModAction, re.Pattern]] = [
 
 _MOD_TARGET_PATTERN = re.compile(
     r"(?:(?:điểm|đpcm)\s+(?P<point>[a-zđ])\s+(?:vào\s+)?)??"
-    r"(?:khoản\s+(?P<khoan>\d+)\s+)??"
-    r"[Đđ][iíì]ều\s+(?P<dieu>\d+[a-zđ]?)"
+    r"(?:khoản\s+(?P<khoan>\d+[a-z]*)\s+)??"
+    r"[Đđ][iíì]ều\s+(?P<dieu>\d+[a-zđ]?)(?!\w)"
     r"(?:\s+[\w\s]+?(?:số\s+(?P<skh>\S+)))?",
     re.UNICODE | re.IGNORECASE,
 )
 
 # Matches "vào sau Điều X" — the anchor article for insertion (bo_sung)
 _RE_VAO_SAU = re.compile(
-    r"vào\s+sau\s+[Đđ][iíì]ều\s+(?P<dieu>\d+[a-zđ]?)",
+    r"vào\s+sau\s+[Đđ][iíì]ều\s+(?P<dieu>\d+[a-zđ]?)(?!\w)",
     re.UNICODE | re.IGNORECASE,
 )
 
@@ -146,19 +146,19 @@ class CrossReferenceExtractor:
         # Group 2: , 
         # Group 3: khoản 2
         # Group 4: Điều 3
-        pattern = r'(?i)(khoản\s+\d+)\s*(,|và)\s*(khoản\s+\d+)\s+(Điều\s+\d+[a-zđ]?)'
+        pattern = r'(?i)(khoản\s+\d+[a-z]*)\s*(,|và)\s*(khoản\s+\d+[a-z]*)\s+(Điều\s+\d+[a-zđ]?)(?!\w)'
         
         # We run it a few times in case of "khoản 1, khoản 2, khoản 3 Điều 4"
         for _ in range(3):
-            new_text = re.sub(pattern, r'\1 \4\2 \3 \4', text)
+            new_text = re.sub(pattern, r'\1 \4 \2 \3 \4', text)
             if new_text == text:
                 break
             text = new_text
             
         # Same for points: "điểm a, điểm b khoản 1" -> "điểm a khoản 1, điểm b khoản 1"
-        pt_pattern = r'(?i)(điểm\s+[a-zđ])\s*(,|và)\s*(điểm\s+[a-zđ])\s+(khoản\s+\d+)'
+        pt_pattern = r'(?i)(điểm\s+[a-zđ])\s*(,|và)\s*(điểm\s+[a-zđ])\s+(khoản\s+\d+[a-z]*)'
         for _ in range(3):
-            new_text = re.sub(pt_pattern, r'\1 \4\2 \3 \4', text)
+            new_text = re.sub(pt_pattern, r'\1 \4 \2 \3 \4', text)
             if new_text == text:
                 break
             text = new_text
@@ -259,30 +259,37 @@ class CrossReferenceExtractor:
         return [text]
 
     def resolve_external(self, ref: ExternalRef) -> ExternalRef:
+        # Danh sách các ứng viên để thử tra cứu (Ưu tiên Short Title trước)
+        candidates = []
         if ref.raw_so_ky_hieu in self._short_title_map:
-            raw_skh = self._short_title_map[ref.raw_so_ky_hieu]
-            normalized = _normalize_so_ky_hieu(raw_skh, ref.target_doc_type)
+            candidates.append((self._short_title_map[ref.raw_so_ky_hieu], "short_title_map"))
+        candidates.append((ref.raw_so_ky_hieu, "exact"))
+
+        last_normalized = None
+        for raw_val, method in candidates:
+            logger.info("Resolving external: %s", raw_val)
+            normalized = _normalize_so_ky_hieu(raw_val, ref.target_doc_type)
+            if not last_normalized:
+                last_normalized = normalized # Giữ lại bản chuẩn hóa của chuỗi gốc
+            
             if normalized in self._lookup:
                 ref.normalized_so_ky_hieu = normalized
                 ref.target_doc_id = self._lookup[normalized]
-                ref.match_method = "short_title_map"
+                ref.match_method = method
                 ref.confidence = 1.0
                 return ref
 
-        normalized = _normalize_so_ky_hieu(ref.raw_so_ky_hieu, ref.target_doc_type)
-        ref.normalized_so_ky_hieu = normalized
-        if normalized in self._lookup:
-            ref.target_doc_id = self._lookup[normalized]
-            ref.match_method = "exact"
-            ref.confidence = 1.0
-            return ref
+        # Nếu không tìm thấy chính xác, lưu lại bản chuẩn hóa cuối cùng
+        ref.normalized_so_ky_hieu = last_normalized
 
-        if not self._fuzzy_enabled: return ref
-        best, dist = _fuzzy_levenshtein(normalized, self._lookup)
-        if dist <= 2:
-            ref.target_doc_id = self._lookup[best]
-            ref.match_method = "fuzzy_levenshtein"
-            ref.confidence = max(0.0, 1.0 - dist * 0.15)
+        # --- FUZZY MATCHING (Tạm thời tắt để tăng tốc độ) ---
+        # if self._fuzzy_enabled:
+        #     best, dist = _fuzzy_levenshtein(last_normalized, self._lookup)
+        #     if dist <= 2:
+        #         ref.target_doc_id = self._lookup[best]
+        #         ref.match_method = "fuzzy_levenshtein"
+        #         ref.confidence = max(0.0, 1.0 - dist * 0.15)
+        
         return ref
 
 
@@ -294,8 +301,8 @@ class CrossReferenceExtractor:
         
         pattern = (
             r"(?:[Đđ]iểm\s+(?P<point>[a-zđ])\s+)?"
-            r"(?:[Kk]hoản\s+(?P<clause>\d+)\s+)?"
-            r"[Đđ]iều\s+(?P<article>\d+[a-zđ]?)"
+            r"(?:[Kk]hoản\s+(?P<clause>\d+[a-z]*)\s+)?"
+            r"[Đđ]iều\s+(?P<article>\d+[a-zđ]?)(?!\w)"
             r"(?:\s+(?:của\s+)?(?P<doc_ref>này|" + titles_pattern + r"|(?:Luật|Bộ luật|Nghị định|Thông tư liên tịch|Thông tư)\s+(?:số\s+)?\d{1,3}/\d{4}/\S+))?"
         )
         self._unified_re = re.compile(pattern, re.UNICODE)
@@ -329,14 +336,43 @@ class CrossReferenceExtractor:
             if "trừ" in lookback_text or "ngoại trừ" in lookback_text or "không áp dụng" in lookback_text:
                 is_exception = True
                 
-            # 2. Phát hiện hành vi Sửa đổi/Bổ sung (trường hợp bị sót bởi _extract_modifications)
+            # 2. Phát hiện hành vi Sửa đổi/Bổ sung
             is_mod = False
             action = ModAction.SUA_DOI
-            if "sửa đổi" in lookback_text: is_mod = True; action = ModAction.SUA_DOI
-            elif "bổ sung" in lookback_text: is_mod = True; action = ModAction.BO_SUNG
-            elif "thay thế" in lookback_text: is_mod = True; action = ModAction.THAY_THE
-            elif "bãi bỏ" in lookback_text: is_mod = True; action = ModAction.BAI_BO
-            elif "hết hiệu lực" in lookback_text: is_mod = True; action = ModAction.HET_HIEU_LUC
+            
+            # Danh sách từ khóa hành động và các từ chỉ định "bị động/tham chiếu"
+            mod_keywords = ["sửa đổi", "bổ sung", "thay thế", "bãi bỏ", "hết hiệu lực"]
+            passive_markers = ["được ", "đã ", "nêu tại", "theo ", "tại ", "quy định ", "thông tư ", "luật ", "nghị định "]
+            negative_phrases = ["khai bổ sung", "tờ khai bổ sung", "mẫu biểu bổ sung"]
+            
+            # Kiểm tra xem có nằm trong cụm từ loại trừ không (ví dụ: "khai bổ sung")
+            is_negative = any(np in lookback_text for np in negative_phrases)
+            
+            # Tìm từ khóa xuất hiện cuối cùng trong lookback (gần trích dẫn nhất)
+            found_kw = None
+            kw_pos = -1
+            for kw in mod_keywords:
+                pos = lookback_text.rfind(kw)
+                if pos > kw_pos:
+                    kw_pos = pos
+                    found_kw = kw
+            
+            if found_kw and not is_negative:
+                # Kiểm tra 20 ký tự ngay trước từ khóa đó để xem có phải bị động không
+                context_before = lookback_text[max(0, kw_pos - 20): kw_pos]
+                
+                # Nếu không chứa các từ bị động, hoặc là bắt đầu một chỉ dẫn (đầu dòng/sau dấu chấm)
+                is_passive = any(m in context_before for m in passive_markers)
+                # Chú ý: "1. Sửa đổi" -> context_before là "1. " -> không passive
+                is_start = context_before.strip() == "" or context_before.strip().endswith(".") or context_before.strip().endswith(":")
+                
+                if not is_passive or is_start:
+                    is_mod = True
+                    if "sửa đổi" == found_kw: action = ModAction.SUA_DOI
+                    elif "bổ sung" == found_kw: action = ModAction.BO_SUNG
+                    elif "thay thế" == found_kw: action = ModAction.THAY_THE
+                    elif "bãi bỏ" == found_kw: action = ModAction.BAI_BO
+                    elif "hết hiệu lực" == found_kw: action = ModAction.HET_HIEU_LUC
             
             if is_mod:
                 # Trích xuất Clause hiện tại làm source
