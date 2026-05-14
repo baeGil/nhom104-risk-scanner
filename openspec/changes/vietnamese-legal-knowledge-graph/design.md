@@ -186,47 +186,42 @@ OPTIONS {indexConfig: {
 
 ## Data Pipeline
 
-### Phase 0: Data Clean & Normalize
+### Phase 1: Unified Ingestion & Extraction (The "Unified Pipeline")
 
-**so_ky_hieu Normalization:**
+Instead of sequential processing, each document is processed through a 4-stage pipeline to ensure context-aware extraction and graph integrity.
 
-Parse raw so_ky_hieu into structured components and generate a normalized form suitable for lookup and cross-reference resolution.
+#### Stage 1: Document Shell Ingestion ("Nạp Xác")
+- **Action**: Create the `:Document` node with metadata only.
+- **Filter Criteria (CRITICAL)**: Only ingest documents matching ALL following conditions:
+    - `loai_van_ban` IN ['Thông tư', 'Nghị định', 'Luật', 'Bộ luật']
+    - `ngay_ban_hanh` >= '2000-01-01' (After year 2000)
+- **Goal**: Establish an "anchor" for relationships and child nodes while keeping the graph focused on modern, core legal documents.
+- **Properties**: `id`, `so_ky_hieu`, `normalized_so_ky_hieu`, `title`, `loai_van_ban`, `ngay_ban_hanh`, `is_stub: false`.
+- **Note**: Content (HTML) is NOT stored on the Document node to ensure performance and avoid redundancy.
 
-```
-Raw inputs:
-  "46/2014/NĐ-CP"  → {type: "Nghị định", number: 46, year: 2014, issuer: "CP", normalized: "ND-046-2014"}
-  "68/2014/QH13"   → {type: "Luật", number: 68, year: 2014, session: "QH13", normalized: "LT-068-2014"}
-  "25/2017/TT-BTC"  → {type: "Thông tư", number: 25, year: 2017, issuer: "BTC", normalized: "TT-025-2017-BTC"}
-  "79-TP/NĐ"        → {type: "Nghị định", number: 79, year: null, issuer: "TP", normalized: "ND-079-????-TP"}
-  "Không số"        → {type: unknown, skip normalization}
+#### Stage 2: Preamble Scanning & Context Discovery
+- **Action**: Scan the text from start to "Điều 1".
+- **Discovery**: 
+    - Identify **Primary Target**: For amending documents, extract the main document being modified (e.g., "Sửa đổi Nghị định 46/2014").
+    - Identify **Legal Basis**: Extract all documents cited as "Căn cứ...".
+- **Context Propagation**: The `Primary Target` is stored in memory as a context variable for the next stages.
+- **Relationship**: Create `[:CITES]` edges immediately. Create "Stub" nodes for target documents not yet in DB.
 
-Resolution priority:
-  1. Exact match on normalized so_ky_hieu + loai_van_ban + year
-  2. Fuzzy match (Levenshtein distance ≤ 2) on so_ky_hieu
-  3. Year + loai_van_ban + title substring match
-  4. Flag for manual resolution
-```
+#### Stage 3: Hierarchical Segmentation (Parser)
+- **Action**: Rule-based parser breaks HTML into Chapters, Articles, Clauses, and Points.
+- **Ingestion**: Create child nodes and link them to the "Shell" Document using `HAS_CHAPTER`, `HAS_ARTICLE`, etc.
+- **Content**: Store `text_content` and `clean_text` at the most granular level (Article/Clause/Point).
 
-**Content Cleaning:**
-
-Strip wrapper `<table class="detailcontent">`, remove `<font>` tags (keep content, drop formatting), normalize `<p>` tags (remove empty ones), preserve `<b>` and `<strong>` (essential for hierarchy detection), preserve `<i>` and `<em>` (definitions, references), remove `<dir>` tags. Store both raw_html and clean_html.
-
-**Deduplication:**
-
-Same so_ky_hieu + same loai_van_ban + same year → same document. Keep version with most content, merge metadata (prefer non-null fields). 1,273 exact duplicates identified.
-
-**Missing Content Crawl:**
-
-For 2,637 core documents missing from content.parquet, crawl from thuvienphapluat.vn. Extract HTML content from detail page using so_ky_hieu as search key. Insert into content.parquet with matching doc_id. Preserve all metadata fields unchanged. Target: ≥95% content coverage for effective core docs.
-
-### Phase 1: Segment — Parse Hierarchy
+#### Stage 4: Context-Aware Cross-Reference Extraction
+- **Internal Refs**: Resolve "Điều này", "khoản X Điều này" within the same document hierarchy.
+- **External Refs**: Resolve citations to other documents using the Global Lookup Table.
+- **Modification Refs (Crucial)**: 
+    - When an Article says "Sửa đổi Điều X" without naming a document, it is resolved against the `Primary Target` found in **Stage 2**.
+    - Link `(NewArticle)-[:MODIFIES]->(OldArticle/Clause)`.
 
 **Rule-based Parser (80-85% coverage):**
 
 State machine processing cleaned HTML top-to-bottom:
-
-```
-State: {doc_id, current_chapter, current_article, current_clause, current_point}
 
 Priority detection order:
 1. Chương: /^Chương\s+[IVXL]+\s*\.?\s/i  → push chapter state

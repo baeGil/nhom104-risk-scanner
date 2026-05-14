@@ -27,3 +27,5 @@ error/
 
 # ui prompt 
 frontend/frontend_prompt.md
+test_*.md
+*.tar

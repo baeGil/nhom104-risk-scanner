@@ -36,6 +36,7 @@ Detect references from one document's provisions to provisions in other document
   - `"theo Thông tư liên tịch số {N}/{Y}/TTLT-{agency}"` → TTLT lookup
 - Resolve to Document nodes via so_ky_hieu lookup table
 - When reference includes specific Điều/Khoản/Điểm: resolve to Article/Clause/Point within target document
+- **Stubbing Support**: Nếu văn bản đích hoặc Điều/Khoản/Điểm đích không tồn tại trong Database, hệ thống SHALL tạo node Stub (với thuộc tính `is_stub: true`) thay vì bỏ qua.
 - Fuzzy match fallback for ~25-30% non-standard formats:
   - Levenshtein distance ≤ 2 on so_ky_hieu
   - Year + loai_van_ban + title substring containment
@@ -64,6 +65,7 @@ Parse "sửa đổi/bổ sung" documents to create article-level modification li
   - `"Sửa đổi, bổ sung một số khoản của Điều {Z} ..."`
 - Resolve target_document to Neo4j Document node via so_ky_hieu lookup
 - Resolve target_article to Article node within target document
+- **Stubbing Support**: Nếu văn bản đích hoặc Điều đích không tồn tại, hệ thống SHALL tạo node Stub (Document/Article) để duy trì quan hệ sửa đổi.
 - Create [:MODIFIES] relationships with full metadata (action, target_clause, target_point, context)
 - Validate: source Article must exist, target Document must exist, target Article should exist
 - Log unresolved modifications (target_doc or target_article not found)

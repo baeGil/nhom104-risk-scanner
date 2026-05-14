@@ -73,6 +73,7 @@ class InternalRef:
     confidence: float = 1.0     # 1.0 = exact regex match, <1.0 = fuzzy/ambiguous
     start_char: int = 0         # Start position in the original fragment
     end_char: int = 0           # End position in the original fragment
+    is_exception: bool = False  # Phase 2: Đánh dấu quan hệ ngoại trừ
 
 
 @dataclass
@@ -107,6 +108,7 @@ class ExternalRef:
     confidence: float = 1.0
     start_char: int = 0
     end_char: int = 0
+    is_exception: bool = False          # Phase 2: Đánh dấu nếu là quan hệ ngoại trừ (trừ trường hợp...)
 
 
 @dataclass
@@ -142,6 +144,9 @@ class ModificationRef:
     confidence: float = 1.0
     start_char: int = 0
     end_char: int = 0
+
+    # T2.3 improvement: flag to indicate this ref needs target_doc_id/article from context
+    is_partial_ref: bool = False
 
 
 # ---------------------------------------------------------------------------

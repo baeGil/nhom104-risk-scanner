@@ -28,6 +28,8 @@
 
 - [ ] T1.7: **Ingest document-level relationships** — Migrate 659K relationships from relationships.parquet. Map Vietnamese relationship types to Neo4j relationship types (CITES, DETAILS, SUPERSEDES, AMENDS, SUPPLEMENTS, etc.). Create both forward and reverse relationships. Validate: both endpoints must exist as Document nodes. — *Depends on: T1.4* — *Spec: segmentation*
 
+- [ ] T1.8: **Implement Unified Ingestion Pipeline** — Create a single entry point that processes a document through all 4 stages: Metadata Shell → Preamble Context Scan → Hierarchical Parsing → Context-Aware XRef Extraction. **Filter Note**: Only process ['Thông tư', 'Nghị định', 'Luật', 'Bộ luật'] issued from the year 2000 onwards. This ensures graph integrity and correct resolution of modification references. — *Depends on: T1.5, T1.7, T2.2*
+
 ## Phase 2: Cross-Reference Extraction
 
 - [ ] T2.0: **Build short-title mapping table** — Create a JSON mapping of common law titles (e.g., "Luật Đất đai", "Bộ luật Dân sự") to their normalized `so_ky_hieu`. This enables resolution of references that lack serial numbers.
