@@ -11,13 +11,9 @@
         "uu_tien": "P1",
         "ghi_chu": "Van_ban_trung_tam_toan_he_thong",
         "mo_ta": "Bộ luật Lao động 2019. Hiệu lực 01/01/2021. Thay thế BLLĐ 10/2012. Quy định quan hệ lao động, hợp đồng lao động, tiền lương, thời giờ làm việc, nghỉ ngơi, kỷ luật, giải quyết tranh chấp. Gồm 17 chương, 220 điều.",
-        "doc_id": "139264",
+        "doc_id": "blld_45_2019",
         "lien_ket": {
-          "dan_chieu_den": [
-            "41/2024/QH15",
-            "84/2015/QH13",
-            "38/2013/QH13"
-          ],
+          "dan_chieu_den": ["41/2024/QH15", "84/2015/QH13", "38/2013/QH13"],
           "huong_dan_boi": [
             "145/2020/NĐ-CP",
             "135/2020/NĐ-CP",
@@ -36,7 +32,7 @@
         "uu_tien": "P1",
         "ghi_chu": "Thay_the: 58/2014/QH13. Đan_chieu_tu: 45/2019/QH14_Đieu_168. Hieu_luc: 01/07/2025",
         "mo_ta": "Luật BHXH 2024 (sửa đổi toàn diện). Hiệu lực 01/07/2025. Thay thế Luật BHXH 58/2014. Mở rộng đối tượng tham gia BHXH bắt buộc (hộ kinh doanh có đăng ký, người quản lý ĐN không hưởng lương), giảm điều kiện hưởng lương hưu (từ 20 năm xuống 15 năm), bổ sung trợ cấp hưu trí xã hội.",
-        "doc_id": "175027"
+        "doc_id": "bhxh_41_2024"
       },
       {
         "ten": "Luật An toàn, vệ sinh lao động",
@@ -46,7 +42,7 @@
         "uu_tien": "P1",
         "ghi_chu": "Đan_chieu_tu: 45/2019/QH14_Đieu_169. Hieu_luc: 01/07/2016",
         "mo_ta": "Luật ATVSLĐ 2015. Quy định điều kiện lao động an toàn, phòng ngừa tai nạn lao động và bệnh nghề nghiệp, bồi thường tai nạn lao động.",
-        "doc_id": "70811"
+        "doc_id": "atvsld_84_2015"
       },
       {
         "ten": "Luật Việc làm",
@@ -56,7 +52,7 @@
         "uu_tien": "P1",
         "ghi_chu": "Đan_chieu_tu: 45/2019/QH14. Đang_xem_xet_sua_doi_toan_dien",
         "mo_ta": "Luật Việc làm 2013. Quy định chính sách hỗ trợ tạo việc làm, bảo hiểm thất nghiệp, đánh giá kỹ năng nghề quốc gia.",
-        "doc_id": "32912"
+        "doc_id": "viec_lam_38_2013"
       }
     ]
   },
@@ -72,7 +68,7 @@
         "uu_tien": "P1",
         "ghi_chu": "Huong_dan: 45/2019/QH14. Het_hieu_luc_mot_phan_boi: 35/2022/NĐ-CP, 10/2024/NĐ-CP. Hieu_luc_tu: 01/02/2021. Thay_the: NĐ_03/2014, NĐ_44/2013, NĐ_05/2015, NĐ_29/2019",
         "mo_ta": "Nghị định hướng dẫn BLLĐ 2019 về điều kiện lao động và quan hệ lao động. Gồm 11 chương, 115 điều. Quy định chi tiết hợp đồng lao động, thử việc, học nghề, cho thuê lại lao động, đối thoại nơi làm việc, kỷ luật, trách nhiệm vật chất. Đồng thời bãi bỏ hoàn toàn NĐ 29/2019 về cho thuê lại lao động.",
-        "doc_id": "152668",
+        "doc_id": "nd_145_2020",
         "lich_su_sua_doi": [
           {
             "so_hieu": "35/2022/NĐ-CP",
@@ -102,7 +98,7 @@
         "uu_tien": "P1",
         "ghi_chu": "Huong_dan: 45/2019/QH14_Đieu_169. Hieu_luc: 01/01/2021",
         "mo_ta": "Nghị định quy định về tuổi nghỉ hưu. Hướng dẫn chi tiết Điều 169 BLLĐ 2019 về lộ trình tăng tuổi nghỉ hưu: lao động nam từ 60t3th (2021) lên 62 tuổi (2028), lao động nữ từ 55t4th (2021) lên 60 tuổi (2035). Quy định trường hợp nghỉ hưu sớm (tối đa 5 tuổi) và muộn hơn. QUAN TRỌNG: Đây KHÔNG phải NĐ về chấm dứt hoạt động doanh nghiệp.",
-        "doc_id": "152734"
+        "doc_id": "nd_135_2020"
       },
       {
         "ten": "Nghị định về người lao động nước ngoài làm việc tại Việt Nam",
@@ -112,7 +108,7 @@
         "uu_tien": "P1",
         "ghi_chu": "Huong_dan: 45/2019/QH14_Chuong_XI. Het_hieu_luc_mot_phan_boi: 35/2022/NĐ-CP va 70/2023/NĐ-CP. Hieu_luc: 15/02/2021",
         "mo_ta": "Quy định về giấy phép lao động (GPLĐ) cho người nước ngoài làm việc tại VN, trường hợp không cần GPLĐ, thủ tục cấp/cấp lại/gia hạn/thu hồi. Đã bị sửa đổi 2 lần. Văn bản hợp nhất hiện hành là VBHN 5512/VBHN-BLĐTBXH.",
-        "doc_id": "152669",
+        "doc_id": "nd_152_2020",
         "lich_su_sua_doi": [
           {
             "so_hieu": "35/2022/NĐ-CP",
@@ -141,7 +137,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Thay_the: 28/2020/NĐ-CP. Hieu_luc: 17/01/2022",
         "mo_ta": "Nghị định xử phạt VPHC trong lĩnh vực lao động, bảo hiểm xã hội, đưa NLĐ đi làm việc nước ngoài theo hợp đồng. Tăng đáng kể mức phạt so với NĐ 28/2020. Áp dụng cho cả cá nhân và tổ chức vi phạm.",
-        "doc_id": "153913"
+        "doc_id": "nd_12_2022"
       },
       {
         "ten": "Nghị định về lương tối thiểu (hiện hành từ 01/01/2026)",
@@ -151,7 +147,7 @@
         "uu_tien": "P1",
         "ghi_chu": "Thay_the: 74/2024/NĐ-CP. Hieu_luc: 01/01/2026. Ban_hanh: 10/11/2025",
         "mo_ta": "Nghị định quy định mức lương tối thiểu vùng từ 01/01/2026 (tăng bình quân 7,2% so với NĐ 74/2024). Vùng I: 5.310.000đ/tháng (25.500đ/giờ); Vùng II: 4.730.000đ/tháng; Vùng III: 4.140.000đ/tháng; Vùng IV: 3.700.000đ/tháng. Thay thế hoàn toàn NĐ 74/2024.",
-        "doc_id": "183939"
+        "doc_id": "nd_293_2025"
       },
       {
         "ten": "Nghị định về lương tối thiểu (đã hết hiệu lực từ 01/01/2026)",
@@ -161,7 +157,7 @@
         "uu_tien": "P3",
         "ghi_chu": "Thay_the_boi: 293/2025/NĐ-CP. Het_hieu_luc_tu: 01/01/2026. Ban_hanh: 30/06/2024",
         "mo_ta": "Nghị định quy định mức lương tối thiểu vùng 2024 (áp dụng 01/07/2024–31/12/2025, tăng khoảng 6% so với NĐ 38/2022). Vùng I: 4.960.000đ, Vùng II: 4.410.000đ, Vùng III: 3.860.000đ, Vùng IV: 3.450.000đ. Đã hết hiệu lực từ 01/01/2026. Giữ lại để trích dẫn pháp lý giai đoạn 01/07/2024–31/12/2025.",
-        "doc_id": "168670"
+        "doc_id": "nd_74_2024"
       },
       {
         "ten": "Nghị định về giải quyết tranh chấp lao động",
@@ -171,7 +167,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Huong_dan: 45/2019/QH14_Chuong_XIV",
         "mo_ta": "Quy định chi tiết về hòa giải viên lao động, Hội đồng trọng tài lao động, trình tự giải quyết tranh chấp lao động cá nhân và tập thể.",
-        "doc_id": "152668"
+        "doc_id": "nd_115_2021"
       },
       {
         "ten": "Nghị định về người lao động Việt Nam đi làm việc ở nước ngoài theo hợp đồng",
@@ -181,7 +177,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Huong_dan: Luat_69/2020/QH14 (Luat_NLĐ_VN_di_lam_viec_nuoc_ngoai). Khong_phai_huong_dan_truc_tiep_BLLĐ",
         "mo_ta": "Hướng dẫn Luật Người lao động Việt Nam đi làm việc ở nước ngoài theo hợp đồng (69/2020/QH14). Quy định điều kiện doanh nghiệp dịch vụ, hợp đồng đưa NLĐ đi làm việc nước ngoài, quyền và nghĩa vụ các bên.",
-        "doc_id": "152929"
+        "doc_id": "nd_112_2021"
       },
       {
         "ten": "Nghị định về hợp đồng lao động điện tử",
@@ -191,7 +187,7 @@
         "uu_tien": "P1",
         "ghi_chu": "Van_ban_moi_hoan_toan. Chua_co_sua_doi. Hieu_luc_chung: 01/01/2026. Nen_tang_eContract: 01/07/2026. CAN_XAC_MINH_them",
         "mo_ta": "Nghị định về hợp đồng lao động điện tử — văn bản hoàn toàn mới (nếu tồn tại). Quy định giá trị pháp lý HĐLĐ ký số/điện tử, nền tảng eContract. LƯU Ý: Cần xác minh số hiệu chính xác vì chưa tìm thấy nguồn chính thống xác nhận số 337/2025.",
-        "doc_id": "185561"
+        "doc_id": "nd_337_2025"
       },
       {
         "ten": "Nghị định về quản lý khu công nghiệp và khu kinh tế",
@@ -201,7 +197,7 @@
         "uu_tien": "P3",
         "ghi_chu": "Thay_the: 82/2018/NĐ-CP. Hieu_luc: 15/07/2022. Co_dieu_khoan_sua_doi: 145/2020/NĐ-CP va 152/2020/NĐ-CP",
         "mo_ta": "Nghị định về quản lý KCN và khu kinh tế. Chủ yếu thuộc lĩnh vực đầu tư, không phải thuần lao động. Tuy nhiên có điều khoản quan trọng: sửa đổi NĐ 145/2020 (báo cáo lao động) và bổ sung NĐ 152/2020 (thẩm quyền cấp GPLĐ tại KCN). Phần sửa NĐ 152 đã bị NĐ 70/2023 bãi bỏ một phần.",
-        "doc_id": "158798"
+        "doc_id": "nd_35_2022"
       }
     ]
   },
@@ -217,7 +213,7 @@
         "uu_tien": "P1",
         "ghi_chu": "Huong_dan: 41/2024/QH15. Thay_the: 115/2015/NĐ-CP va 143/2018/NĐ-CP. Hieu_luc: 01/07/2025. Ban_hanh: 25/06/2025",
         "mo_ta": "Nghị định hướng dẫn Luật BHXH 2024 về BHXH bắt buộc — ĐÃ BAN HÀNH (không còn là dự thảo). Hiệu lực 01/07/2025. Quy định đối tượng tham gia mới (hộ kinh doanh có đăng ký kê khai thuế từ 01/07/2025; hộ không kê khai từ 01/07/2029), mức tham chiếu, các chế độ BHXH theo Luật mới. Thay thế NĐ 115/2015 và NĐ 143/2018.",
-        "doc_id": "178757"
+        "doc_id": "nd_158_2025"
       },
       {
         "ten": "Nghị định hướng dẫn Luật BHXH về BHXH bắt buộc (đã hết hiệu lực)",
@@ -227,7 +223,7 @@
         "uu_tien": "P3",
         "ghi_chu": "Thay_the_boi: 158/2025/NĐ-CP tu 01/07/2025. Huong_dan: 58/2014/QH13",
         "mo_ta": "NĐ hướng dẫn Luật BHXH 2014 về BHXH bắt buộc. Đã hết hiệu lực từ 01/07/2025. Giữ lại để trích dẫn pháp lý giai đoạn trước 01/07/2025.",
-        "doc_id": "94953"
+        "doc_id": "nd_115_2015"
       },
       {
         "ten": "Nghị định hướng dẫn Luật BHXH về BHXH tự nguyện",
@@ -237,7 +233,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Huong_dan: 58/2014/QH13. Sua_doi_boi: 61/2025/NĐ-CP (neu_co). Can_xac_minh_tinh_trang_hieu_luc_theo_Luat_41/2024",
         "mo_ta": "NĐ về BHXH tự nguyện theo Luật BHXH 2014. Tình trạng hiệu lực cần xác minh sau khi Luật BHXH 2024 có hiệu lực từ 01/07/2025 — phần liên quan đến BHXH tự nguyện theo Luật mới cần nghị định hướng dẫn riêng.",
-        "doc_id": "95650"
+        "doc_id": "nd_134_2015"
       },
       {
         "ten": "Nghị định về mức đóng BHYT",
@@ -247,7 +243,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Sua_doi_boi: 104/2023/NĐ-CP",
         "mo_ta": "Quy định chi tiết về mức đóng, đối tượng tham gia BHYT. Một số điều đã bị sửa đổi bởi NĐ 104/2023.",
-        "doc_id": "132188"
+        "doc_id": "nd_146_2018"
       },
       {
         "ten": "Nghị định sửa đổi NĐ 146/2018 về BHYT",
@@ -257,7 +253,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Sua_doi: 146/2018/NĐ-CP",
         "mo_ta": "Sửa đổi, bổ sung NĐ 146/2018 về BHYT. Điều chỉnh danh mục đối tượng, mức hỗ trợ đóng BHYT từ ngân sách.",
-        "doc_id": "166456"
+        "doc_id": "nd_104_2023"
       }
     ]
   },
@@ -273,7 +269,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Huong_dan: 84/2015/QH13",
         "mo_ta": "Quy định chi tiết thi hành Luật ATVSLĐ: điều kiện cơ sở sản xuất kinh doanh, kiểm định kỹ thuật an toàn, huấn luyện ATVSLĐ.",
-        "doc_id": "105821"
+        "doc_id": "nd_39_2016"
       },
       {
         "ten": "Nghị định về chế độ tai nạn lao động, bệnh nghề nghiệp từ Quỹ BHXH",
@@ -283,7 +279,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Huong_dan: 84/2015/QH13_Chuong_III",
         "mo_ta": "Quy định điều kiện hưởng, mức hưởng trợ cấp TNLĐ-BNN từ Quỹ BHXH. Trình tự giám định mức suy giảm khả năng lao động.",
-        "doc_id": "105823"
+        "doc_id": "nd_37_2016"
       },
       {
         "ten": "Nghị định về huấn luyện ATVSLĐ",
@@ -293,7 +289,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Huong_dan: 84/2015/QH13. Sua_doi_boi: 140/2018/NĐ-CP",
         "mo_ta": "Quy định về huấn luyện ATVSLĐ: nhóm đối tượng, nội dung, thời gian, tổ chức huấn luyện. Đã được sửa đổi bởi NĐ 140/2018.",
-        "doc_id": "117760"
+        "doc_id": "nd_44_2016"
       }
     ]
   },
@@ -309,7 +305,7 @@
         "uu_tien": "P1",
         "ghi_chu": "Huong_dan: 38/2013/QH13_Chuong_VI. Sua_doi_boi: 61/2020/NĐ-CP",
         "mo_ta": "Quy định chi tiết thi hành Luật Việc làm về bảo hiểm thất nghiệp. Điều kiện, mức, thủ tục hưởng trợ cấp thất nghiệp. Một số điều đã bị sửa đổi bởi NĐ 61/2020.",
-        "doc_id": "55726"
+        "doc_id": "nd_28_2015"
       },
       {
         "ten": "Nghị định sửa đổi NĐ 28/2015 về bảo hiểm thất nghiệp",
@@ -319,7 +315,7 @@
         "uu_tien": "P1",
         "ghi_chu": "Sua_doi: 28/2015/NĐ-CP",
         "mo_ta": "Sửa đổi, bổ sung NĐ 28/2015 về bảo hiểm thất nghiệp. Điều chỉnh mức hỗ trợ học nghề, hỗ trợ đào tạo duy trì việc làm.",
-        "doc_id": "142819"
+        "doc_id": "nd_61_2020"
       },
       {
         "ten": "Nghị định về khai trình sử dụng lao động",
@@ -329,7 +325,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Huong_dan: 38/2013/QH13 va 45/2019/QH14",
         "mo_ta": "Quy định việc NSĐLĐ khai trình sử dụng lao động, báo cáo tình hình lao động định kỳ, xây dựng cơ sở dữ liệu lao động.",
-        "doc_id": "148194"
+        "doc_id": "nd_23_2021"
       }
     ]
   },
@@ -345,7 +341,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Co_quan_ban_hanh: Bo_LĐTBXH. Huong_dan: 45/2019/QH14_Đieu_135-136",
         "mo_ta": "Đanh mục công việc không được sử dụng lao động nữ, chế độ bảo vệ thai sản, điều kiện lao động cho lao động nữ.",
-        "doc_id": "146696"
+        "doc_id": "tt_10_2020_bldtbxh"
       },
       {
         "ten": "Thông tư về danh mục công việc nặng nhọc, độc hại, nguy hiểm",
@@ -355,7 +351,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Co_quan_ban_hanh: Bo_LĐTBXH. Huong_dan: 84/2015/QH13",
         "mo_ta": "Đanh mục nghề, công việc nặng nhọc, độc hại, nguy hiểm và đặc biệt nặng nhọc. Căn cứ tính phụ cấp, điều kiện nghỉ hưu sớm.",
-        "doc_id": "146697"
+        "doc_id": "tt_11_2020_bldtbxh"
       },
       {
         "ten": "Thông tư hướng dẫn về giải quyết tranh chấp lao động",
@@ -365,7 +361,7 @@
         "uu_tien": "P3",
         "ghi_chu": "Co_quan_ban_hanh: Bo_LĐTBXH. Huong_dan: 115/2021/NĐ-CP",
         "mo_ta": "Hướng dẫn về hòa giải viên lao động, Hội đồng trọng tài lao động; mẫu biên bản, quyết định trong giải quyết tranh chấp.",
-        "doc_id": "148950"
+        "doc_id": "tt_05_2021_bldtbxh"
       },
       {
         "ten": "Thông tư về tiêu chuẩn phân loại lao động theo điều kiện lao động",
@@ -375,7 +371,7 @@
         "uu_tien": "P3",
         "ghi_chu": "Co_quan_ban_hanh: Bo_LĐTBXH. Thay_the: 15/2016/TT-BLĐTBXH",
         "mo_ta": "Tiêu chuẩn phân loại lao động theo điều kiện lao động (loại I đến loại V). Căn cứ xác định nghề nặng nhọc hưởng chế độ đặc thù.",
-        "doc_id": "155989"
+        "doc_id": "tt_29_2021_bldtbxh"
       },
       {
         "ten": "Thông tư hướng dẫn NĐ 145/2020 (thang lương, bảng lương, nội quy, thỏa ước)",
@@ -385,7 +381,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Co_quan_ban_hanh: Bo_LĐTBXH. Huong_dan: 145/2020/NĐ-CP",
         "mo_ta": "Hướng dẫn chi tiết về thang lương, bảng lương, nâng bậc lương; mẫu nội quy lao động, thỏa ước lao động tập thể.",
-        "doc_id": "149983"
+        "doc_id": "tt_10_2021_bldtbxh"
       },
       {
         "ten": "Thông tư về máy, thiết bị có yêu cầu nghiêm ngặt về ATVSLĐ (Bộ Công Thương)",
@@ -395,7 +391,7 @@
         "uu_tien": "P3",
         "ghi_chu": "Co_quan_ban_hanh: Bo_Cong_Thuong. Huong_dan: 84/2015/QH13",
         "mo_ta": "Đanh mục máy móc, thiết bị, vật tư có yêu cầu nghiêm ngặt về ATVSLĐ thuộc phạm vi quản lý Bộ Công Thương. Quy trình kiểm định kỹ thuật an toàn.",
-        "doc_id": "142387"
+        "doc_id": "tt_06_2020_bct"
       },
       {
         "ten": "Thông tư hướng dẫn thực hiện bảo hiểm thất nghiệp",
@@ -405,7 +401,7 @@
         "uu_tien": "P2",
         "ghi_chu": "Co_quan_ban_hanh: Bo_LĐTBXH. Huong_dan: 28/2015/NĐ-CP va 61/2020/NĐ-CP. Can_xac_minh_so_hieu",
         "mo_ta": "Hướng dẫn thủ tục hưởng bảo hiểm thất nghiệp, hỗ trợ học nghề, hỗ trợ đào tạo duy trì việc làm. LƯU Ý: cần xác minh số hiệu thông tư chính xác.",
-        "doc_id": "167034"
+        "doc_id": "tt_15_2023_bldtbxh"
       }
     ]
   },

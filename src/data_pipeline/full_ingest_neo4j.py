@@ -79,7 +79,7 @@ def run_unified_pipeline():
     logger.info(f"Tổng số văn bản mục tiêu cần nạp từ JSON: {len(target_docs)}")
     
     logger.info("Đọc metadata_deduped.parquet...")
-    meta_df = pd.read_parquet("data/metadata_deduped.parquet")
+    meta_df = pd.read_parquet("data/metadata.parquet")
     meta_df['id'] = meta_df['id'].astype(str)
     
     # Lọc chỉ những văn bản có trong list mục tiêu
