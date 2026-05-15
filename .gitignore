@@ -31,3 +31,6 @@ test_*.md
 *.tar
 
 *.parquet
+.DS_Store 
+luat_lao_dong_schema.json
+luocdo.html

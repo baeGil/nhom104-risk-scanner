@@ -70,3 +70,9 @@ export async function getJobHistory(): Promise<ContractJob[]> {
     compliance: job.compliance,
   }));
 }
+
+export const contractApi = {
+  uploadContract,
+  getJobStatus,
+  getJobHistory,
+};
