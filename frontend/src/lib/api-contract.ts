@@ -1,18 +1,73 @@
 import { apiRequest } from "./api-client";
-import type { ContractJob, ContractClause, ComplianceResult } from "./mock-api-contract";
 
 export interface UploadResponse {
   jobId: string;
 }
 
+export interface ContractJob {
+  id: string;
+  filename: string;
+  status: "uploading" | "parsing" | "extracting" | "retrieving" | "analyzing" | "verifying" | "completed" | "failed";
+  progress: number;
+  createdAt: string;
+  clauses?: ContractClause[];
+  matches?: LegalMatch[];
+  compliance?: ComplianceResult;
+  citations?: CitationResult[];
+  error?: string;
+}
+
+export interface ContractClause {
+  id: string;
+  type: string;
+  text: string;
+  riskLevel: "low" | "medium" | "high";
+}
+
+export interface LegalMatch {
+  clauseId: string;
+  uid: string;
+  citation: string;
+  documentTitle: string;
+  segmentType: string;
+  score: number;
+  validitySignal: string;
+  scoreFactors: Record<string, number>;
+}
+
+export interface CitationResult {
+  displayText: string;
+  uid: string;
+  verified: boolean;
+  reason?: string;
+  documentTitle?: string;
+}
+
+export interface ComplianceResult {
+  violations: ComplianceViolation[];
+  risks: string[];
+  suggestions: string[];
+  citations?: CitationResult[];
+}
+
+export interface ComplianceViolation {
+  clause: string;
+  description: string;
+  citation: string;
+  verified: boolean;
+}
+
 export interface JobStatusResponse {
   jobId: string;
-  status: "uploading" | "parsing" | "analyzing" | "completed" | "failed";
+  status: ContractJob["status"];
   progress: number;
   filename: string;
   createdAt: string;
   clauses?: ContractClause[];
+  matches?: LegalMatch[];
   compliance?: ComplianceResult;
+  citations?: CitationResult[];
+  error?: string;
 }
 
 export async function uploadContract(file: File): Promise<{ jobId: string }> {
@@ -53,7 +108,10 @@ export async function getJobStatus(jobId: string): Promise<ContractJob> {
     progress: status.progress,
     createdAt: status.createdAt,
     clauses: status.clauses,
+    matches: status.matches,
     compliance: status.compliance,
+    citations: status.citations,
+    error: status.error,
   };
 }
 
@@ -67,7 +125,10 @@ export async function getJobHistory(): Promise<ContractJob[]> {
     progress: job.progress,
     createdAt: job.createdAt,
     clauses: job.clauses,
+    matches: job.matches,
     compliance: job.compliance,
+    citations: job.citations,
+    error: job.error,
   }));
 }
 

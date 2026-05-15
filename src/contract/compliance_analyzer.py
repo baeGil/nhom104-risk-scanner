@@ -95,7 +95,13 @@ class ComplianceAnalyzer:
         # Format provisions
         provisions_text = ""
         for i, prov in enumerate(provisions, 1):
-            provisions_text += f"\n{i}. {prov.document_title} - {prov.article_title}\n"
+            display_citation = getattr(prov, "display_citation", "") or prov.article_title
+            segment_uid = getattr(prov, "segment_uid", "") or prov.article_uid
+            validity_signal = getattr(prov, "validity_signal", "latest_known")
+            provisions_text += f"\n{i}. {display_citation}\n"
+            provisions_text += f"   uid: {segment_uid}\n"
+            provisions_text += f"   document: {prov.document_title}\n"
+            provisions_text += f"   validity_signal: {validity_signal}\n"
             provisions_text += f"   {prov.effective_text or prov.article_text}\n"
 
         # Format amendment history

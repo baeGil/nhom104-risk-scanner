@@ -7,10 +7,11 @@ Jobs are keyed by job_id (UUID string).
 from __future__ import annotations
 
 import threading
-import time
 import uuid
-from dataclasses import dataclass, field
+import json
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 
 
@@ -23,7 +24,9 @@ class Job:
     progress: int = 0
     created_at: str = ""
     clauses: Optional[list[dict]] = None
+    matches: Optional[list[dict]] = None
     compliance: Optional[dict] = None
+    citations: Optional[list[dict]] = None
     error: Optional[str] = None
 
     def __post_init__(self):
@@ -38,9 +41,11 @@ class JobStore:
     Thread-safe for concurrent access.
     """
 
-    def __init__(self):
+    def __init__(self, path: str = "output/contract_jobs.json"):
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
+        self._path = Path(path)
+        self._load()
 
     def create_job(self, filename: str) -> str:
         """Create a new job and return job_id."""
@@ -48,6 +53,7 @@ class JobStore:
         job = Job(job_id=job_id, filename=filename, status="uploading", progress=0)
         with self._lock:
             self._jobs[job_id] = job
+            self._save_locked()
         return job_id
 
     def get_job(self, job_id: str) -> Optional[Job]:
@@ -62,6 +68,7 @@ class JobStore:
             if job:
                 for key, value in kwargs.items():
                     setattr(job, key, value)
+                self._save_locked()
             return job
 
     def get_all_jobs(self) -> list[Job]:
@@ -78,8 +85,23 @@ class JobStore:
         with self._lock:
             if job_id in self._jobs:
                 del self._jobs[job_id]
+                self._save_locked()
                 return True
             return False
+
+    def _load(self) -> None:
+        if not self._path.exists():
+            return
+        try:
+            data = json.loads(self._path.read_text(encoding="utf-8"))
+            self._jobs = {item["job_id"]: Job(**item) for item in data}
+        except Exception:
+            self._jobs = {}
+
+    def _save_locked(self) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        data = [asdict(job) for job in self._jobs.values()]
+        self._path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 # Global job store instance

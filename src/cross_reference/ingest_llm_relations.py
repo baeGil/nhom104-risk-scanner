@@ -138,7 +138,8 @@ def ingest_relations():
             "source_uid": source_uid,
             "target_uid": target_uid,
             "rel_type": neo4j_rel_type,
-            "raw_type": rel_type
+            "raw_type": rel_type,
+            "ref_type": rel_type if neo4j_rel_type == "REFERENCES" else None
         })
 
     # Log failures
@@ -167,7 +168,13 @@ def ingest_relations():
                 MATCH (s {{uid: row.source_uid}})
                 MATCH (t {{uid: row.target_uid}})
                 MERGE (s)-[r:{t}]->(t)
-                ON CREATE SET r.created_at = datetime(), r.llm_extracted = true, r.raw_type = row.raw_type
+                ON CREATE SET r.created_at = datetime()
+                SET r.llm_extracted = true,
+                    r.raw_type = row.raw_type,
+                    r.ref_type = CASE
+                        WHEN row.ref_type IS NOT NULL THEN row.ref_type
+                        ELSE r.ref_type
+                    END
                 """
                 result = session.run(query, batch=batch)
                 summary = result.consume()

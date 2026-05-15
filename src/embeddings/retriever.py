@@ -89,3 +89,76 @@ class EmbeddingRetriever:
                 seen_uids.add(seg["uid"])
                 
         return unique_segments
+
+    def get_segment_context(self, uid: str) -> Optional[Dict[str, Any]]:
+        """
+        Return Document -> Article -> Clause -> Point context for any legal segment uid.
+        """
+        if not self.driver:
+            logger.error("Neo4j driver not initialized.")
+            return None
+
+        query = """
+        MATCH (node {uid: $uid})
+        OPTIONAL MATCH (doc_a:Document)-[:HAS_ARTICLE]->(node)
+        OPTIONAL MATCH (doc_ch:Document)-[:HAS_CHAPTER]->(:Chapter)-[:HAS_ARTICLE]->(node)
+        OPTIONAL MATCH (article_for_clause:Article)-[:HAS_CLAUSE]->(node)
+        OPTIONAL MATCH (doc_c1:Document)-[:HAS_ARTICLE]->(article_for_clause)
+        OPTIONAL MATCH (doc_c2:Document)-[:HAS_CHAPTER]->(:Chapter)-[:HAS_ARTICLE]->(article_for_clause)
+        OPTIONAL MATCH (clause_for_point:Clause)-[:HAS_POINT]->(node)
+        OPTIONAL MATCH (article_for_point:Article)-[:HAS_CLAUSE]->(clause_for_point)
+        OPTIONAL MATCH (doc_p1:Document)-[:HAS_ARTICLE]->(article_for_point)
+        OPTIONAL MATCH (doc_p2:Document)-[:HAS_CHAPTER]->(:Chapter)-[:HAS_ARTICLE]->(article_for_point)
+        WITH node, labels(node) AS labels,
+             coalesce(doc_a, doc_ch, doc_c1, doc_c2, doc_p1, doc_p2) AS doc,
+             coalesce(article_for_clause, article_for_point, CASE WHEN node:Article THEN node ELSE null END) AS article,
+             coalesce(clause_for_point, CASE WHEN node:Clause THEN node ELSE null END) AS clause
+        RETURN node, labels, doc, article, clause
+        """
+        with self.driver.session() as session:
+            record = session.run(query, uid=uid).single()
+            if not record:
+                return None
+
+        node = dict(record["node"])
+        labels = list(record["labels"] or [])
+        doc = dict(record["doc"]) if record["doc"] else {}
+        article = dict(record["article"]) if record["article"] else {}
+        clause = dict(record["clause"]) if record["clause"] else {}
+
+        article_index = article.get("index", node.get("index") if "Article" in labels else None)
+        clause_index = clause.get("index", node.get("index") if "Clause" in labels else None)
+        point_letter = node.get("letter", "") if "Point" in labels else ""
+
+        citation_parts = []
+        if article_index:
+            citation_parts.append(f"Điều {article_index}")
+        if clause_index:
+            citation_parts.append(f"khoản {clause_index}")
+        if point_letter:
+            citation_parts.append(f"điểm {point_letter}")
+        if doc.get("title"):
+            citation_parts.append(doc["title"])
+
+        article_text = article.get("clean_text", node.get("clean_text", "") if "Article" in labels else "")
+        clause_text = clause.get("clean_text", node.get("clean_text", "") if "Clause" in labels else "")
+        point_text = node.get("clean_text", "") if "Point" in labels else ""
+        text = "\n".join(part for part in [article_text, clause_text, point_text] if part)
+
+        return {
+            "uid": node.get("uid", uid),
+            "labels": labels,
+            "segment_type": node.get("segment_type") or next((l for l in ["Point", "Clause", "Article"] if l in labels), ""),
+            "document_id": str(doc.get("id", "")),
+            "document_title": doc.get("title", ""),
+            "document_so_ky_hieu": doc.get("so_ky_hieu", ""),
+            "document_type": doc.get("loai_van_ban", ""),
+            "article_uid": article.get("uid", node.get("uid", "") if "Article" in labels else ""),
+            "article_index": article_index,
+            "article_title": article.get("title", node.get("title", "") if "Article" in labels else ""),
+            "clause_uid": clause.get("uid", node.get("uid", "") if "Clause" in labels else ""),
+            "clause_index": clause_index,
+            "point_letter": point_letter,
+            "text": text or node.get("clean_text") or node.get("text_content") or "",
+            "display_citation": " ".join(citation_parts).strip() or uid,
+        }

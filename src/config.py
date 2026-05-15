@@ -167,6 +167,9 @@ CRAWL_CHECKPOINT: str = _env("CRAWL_CHECKPOINT", "output/crawl_checkpoint.json")
 CONTRACT_PARSER_BACKEND: str = _env("CONTRACT_PARSER_BACKEND", "pipeline")
 CONTRACT_PARSER_LANG: str = _env("CONTRACT_PARSER_LANG", "ch")
 CONTRACT_MAX_FILE_SIZE_MB: int = _env_int("CONTRACT_MAX_FILE_SIZE_MB", 10)
+OPENAI_OCR_MODEL: str = _env("OPENAI_OCR_MODEL", "gpt-4o-mini")
+CONTRACT_OCR_MIN_TEXT_CHARS: int = _env_int("CONTRACT_OCR_MIN_TEXT_CHARS", 20)
+CONTRACT_OCR_MAX_PAGES: int = _env_int("CONTRACT_OCR_MAX_PAGES", 20)
 
 
 # =============================================================================

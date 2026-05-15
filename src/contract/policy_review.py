@@ -12,7 +12,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from src.contract.models import (
     ContractClause,
@@ -21,6 +21,9 @@ from src.contract.models import (
 )
 from src.contract.matcher import MatchedProvision
 from src.contract.compliance_analyzer import ComplianceAnalyzer
+
+if TYPE_CHECKING:
+    from src.contract.review_pipeline import ContractReviewPipeline
 
 
 @dataclass
@@ -61,8 +64,9 @@ class PolicyReview:
     with additional classification logic.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, pipeline: Optional["ContractReviewPipeline"] = None) -> None:
         self._analyzer = ComplianceAnalyzer()
+        self._pipeline = pipeline
 
     async def review(
         self,
@@ -109,6 +113,19 @@ class PolicyReview:
 
         result.summary = summary
         return result
+
+    async def review_file(self, file_path: str) -> PolicyReviewResult:
+        """
+        Review a policy document through the shared contract review pipeline.
+        """
+        if self._pipeline is None:
+            from src.contract.review_pipeline import ContractReviewPipeline
+            self._pipeline = ContractReviewPipeline()
+
+        pipeline_result = await self._pipeline.review_file(file_path)
+        clauses = [item.clause for item in pipeline_result.clauses]
+        provisions = {item.clause.id: item.matches for item in pipeline_result.clauses}
+        return await self.review(clauses, provisions)
 
     def _classify(
         self,

@@ -11,14 +11,20 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Optional
 
+from dotenv import load_dotenv
+
 logger = logging.getLogger(__name__)
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
 # Retry configuration
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1.0  # seconds
 RETRY_BACKOFF = 2.0  # exponential backoff multiplier
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 RETRYABLE_ERRORS = (
     "rate_limit",
     "timeout",
@@ -76,7 +82,13 @@ class OpenAIClient(LLMClient):
     ) -> None:
         self._api_key = api_key or os.getenv("OPENAI_API_KEY", "")
         self._model = model or os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
-        self._base_url = base_url or os.getenv("OPENAI_BASE_URL") or None
+        raw_base_url = base_url if base_url is not None else os.getenv("OPENAI_BASE_URL", "")
+        self._base_url = raw_base_url.strip() or None
+        if self._base_url and not self._base_url.startswith(("http://", "https://")):
+            raise ValueError(
+                "OPENAI_BASE_URL must start with http:// or https://. "
+                "Leave it empty to use the default OpenAI endpoint."
+            )
         if not self._api_key:
             raise ValueError("OPENAI_API_KEY is required. Set it in .env or environment.")
         self._client = None
@@ -85,9 +97,10 @@ class OpenAIClient(LLMClient):
         """Lazy initialize client."""
         if self._client is None:
             from openai import AsyncOpenAI
-            kwargs = {"api_key": self._api_key}
-            if self._base_url:
-                kwargs["base_url"] = self._base_url
+            kwargs = {
+                "api_key": self._api_key,
+                "base_url": self._base_url or DEFAULT_OPENAI_BASE_URL,
+            }
             self._client = AsyncOpenAI(**kwargs)
         return self._client
 
