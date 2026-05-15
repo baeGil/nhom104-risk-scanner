@@ -28,33 +28,8 @@ interface ComplianceResult {
   suggestions: string[];
 }
 
-const mockAnalysis = {
-  clauses: [
-    { id: "c1", type: "Thanh toán", text: "Bên A thanh toán cho Bên B số tiền 50 triệu đồng/tháng, chậm nhất ngày 05 hàng tháng. Quá hạn phạt 0.5%/ngày.", riskLevel: "low" as const },
-    { id: "c2", type: "Phạt vi phạm", text: "Phạt 30% giá trị hợp đồng khi một bên vi phạm bất kỳ điều khoản nào.", riskLevel: "high" as const },
-    { id: "c3", type: "Bảo hành", text: "Thời hạn bảo hành 12 tháng kể từ ngày bàn giao. Bên B chịu chi phí vận chuyển.", riskLevel: "medium" as const },
-    { id: "c4", type: "Chấm dứt", text: "Hợp đồng tự động gia hạn hàng năm trừ khi một bên thông báo chấm dứt trước 30 ngày.", riskLevel: "low" as const },
-    { id: "c5", type: "Bồi thường", text: "Bên vi phạm phải bồi thường toàn bộ thiệt hại thực tế phát sinh, không giới hạn.", riskLevel: "high" as const },
-    { id: "c6", type: "Bảo mật", text: "Các bên cam kết bảo mật thông tin trong thời hạn hợp đồng và 24 tháng sau khi chấm dứt.", riskLevel: "low" as const },
-    { id: "c7", type: "Giải quyết tranh chấp", text: "Tranh chấp được giải quyết tại Tòa án nhân dân nơi Bên A có trụ sở.", riskLevel: "medium" as const },
-  ],
-  compliance: {
-    violations: [
-      { clause: "Phạt vi phạm", description: "Mức phạt 30% vượt quá 8% giá trị phần nghĩa vụ bị vi phạm theo Luật Thương mại 2005", citation: "Điều 301 Luật Thương mại 2005", verified: true },
-      { clause: "Bồi thường", description: "Điều khoản bồi thường không giới hạn có thể bị tuyên vô hiệu một phần", citation: "Điều 302 BLDS 2015", verified: true },
-    ],
-    risks: [
-      "Mức phạt 30% quá cao, tòa án có thể giảm xuống",
-      "Bồi thường không giới hạn khó được tòa án chấp nhận toàn bộ",
-      "Điều khoản bảo hành chưa rõ ràng về phạm vi",
-    ],
-    suggestions: [
-      "Giảm mức phạt vi phạm xuống tối đa 8% giá trị phần nghĩa vụ bị vi phạm",
-      "Bổ sung giới hạn trách nhiệm bồi thường (ví dụ: tối đa 12 tháng giá trị hợp đồng)",
-      "Làm rõ phạm vi bảo hành: loại trừ hỏng hóc do lỗi Bên A",
-    ],
-  },
-};
+import { contractApi } from "@/lib/api-contract";
+import type { ContractClause as ApiClause, ComplianceResult as ApiCompliance } from "@/lib/mock-api-contract";
 
 const analyzeSteps = [
   { label: "Đang tải lên tài liệu", threshold: 20 },
@@ -152,26 +127,75 @@ export default function ContractReviewPage() {
     setViewMode("analyzing");
     setProgress(0);
 
-    const totalDuration = 4000;
-    const startTime = Date.now();
+    try {
+      let jobId: string;
 
-    await new Promise<void>((resolve) => {
-      const tick = () => {
-        const elapsed = Date.now() - startTime;
-        const pct = Math.min((elapsed / totalDuration) * 100, 100);
-        setProgress(pct);
-        if (pct < 100) {
-          requestAnimationFrame(tick);
-        } else {
-          resolve();
+      if (selectedFile) {
+        // Upload file to backend
+        const uploadResp = await contractApi.uploadContract(selectedFile);
+        jobId = uploadResp.jobId;
+      } else {
+        // For text input, create a blob and upload
+        const blob = new Blob([textContent], { type: "text/markdown" });
+        const file = new File([blob], "contract.md", { type: "text/markdown" });
+        const uploadResp = await contractApi.uploadContract(file);
+        jobId = uploadResp.jobId;
+      }
+
+      // Poll job status
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await contractApi.getJobStatus(jobId);
+          setProgress(status.progress);
+
+          if (status.status === "completed") {
+            clearInterval(pollInterval);
+            // Map API response to local types
+            const apiClauses = status.clauses || [];
+            const apiCompliance = status.compliance;
+
+            setClauses(
+              apiClauses.map((c) => ({
+                id: c.id,
+                type: c.type,
+                text: c.text,
+                riskLevel: c.riskLevel as "low" | "medium" | "high",
+              }))
+            );
+
+            if (apiCompliance) {
+              setCompliance({
+                violations: apiCompliance.violations.map((v) => ({
+                  clause: v.clause,
+                  description: v.description,
+                  citation: v.citation,
+                  verified: v.verified,
+                })),
+                risks: apiCompliance.risks,
+                suggestions: apiCompliance.suggestions,
+              });
+            }
+
+            setViewMode("results");
+          } else if (status.status === "failed") {
+            clearInterval(pollInterval);
+            alert("Phân tích thất bại. Vui lòng thử lại.");
+            setViewMode("preview");
+          }
+        } catch (err) {
+          console.error("Poll error:", err);
         }
-      };
-      requestAnimationFrame(tick);
-    });
+      }, 1000);
 
-    setClauses(mockAnalysis.clauses);
-    setCompliance(mockAnalysis.compliance);
-    setViewMode("results");
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+      }, 5 * 60 * 1000);
+    } catch (err) {
+      console.error("Upload failed:", err);
+      alert("Không thể tải lên hợp đồng. Vui lòng thử lại.");
+      setViewMode("preview");
+    }
   };
 
   // Resizable split pane

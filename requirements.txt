@@ -27,6 +27,7 @@ loguru>=0.7.0
 # ── Embedding Service (T6.2) ─────────────────────────────────────────────────
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
 torch>=2.2.0
 transformers>=4.40.0
 numpy>=1.26.0

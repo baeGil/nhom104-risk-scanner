@@ -7,8 +7,8 @@ Run:
 from __future__ import annotations
 
 import pytest
-from cross_reference.models import DocType, ModAction
-from cross_reference.extractor import CrossReferenceExtractor, _normalize_so_ky_hieu, _fuzzy_levenshtein
+from src.cross_reference.models import DocType, ModAction
+from src.cross_reference.extractor import CrossReferenceExtractor, _normalize_so_ky_hieu, _fuzzy_levenshtein
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -185,7 +185,7 @@ class TestUtilities:
         assert key == "ND-046-2015" and dist == 1
 
     def test_resolve_external_exact(self):
-        from cross_reference.models import ExternalRef
+        from src.cross_reference.models import ExternalRef
         ext = CrossReferenceExtractor(SAMPLE_LOOKUP)
         ref = ExternalRef(
             source_doc_id="d", source_article_uid="a",
@@ -193,7 +193,7 @@ class TestUtilities:
             target_doc_type=DocType.NGHI_DINH,
         )
         # Temporarily replace normalizer with one that produces our fixture key
-        import cross_reference.extractor as mod
+        import src.cross_reference.extractor as mod
         orig = mod._normalize_so_ky_hieu
         mod._normalize_so_ky_hieu = lambda raw, dt: "ND-046-2014"
         ext.resolve_external(ref)

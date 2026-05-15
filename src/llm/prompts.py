@@ -80,7 +80,7 @@ Với mỗi điều khoản, xác định:
 - deadline: Thời hạn (nếu có)
 
 Contract text:
-{contract_text}
+{{contract_text}}
 
 Trả về JSON array.
 """)
@@ -92,13 +92,13 @@ Trả về JSON array.
 PromptTemplate.register("compliance_analysis", """Phân tích tuân thủ pháp luật cho điều khoản hợp đồng sau.
 
 Contract clause:
-{clause_text}
+{{clause_text}}
 
 Matched legal provisions:
-{legal_provisions}
+{{legal_provisions}}
 
 Amendment history:
-{amendment_history}
+{{amendment_history}}
 
 Với mỗi điều khoản, trả về:
 - violations: Vi phạm pháp luật cụ thể
@@ -116,16 +116,16 @@ Trả về JSON.
 PromptTemplate.register("answer_generation", """Trả lời câu hỏi pháp lý sau dựa trên thông tin đã truy xuất.
 
 Question:
-{question}
+{{question}}
 
 Retrieved provisions:
-{retrieved_provisions}
+{{retrieved_provisions}}
 
 Effective text:
-{effective_text}
+{{effective_text}}
 
 Amendment history:
-{amendment_history}
+{{amendment_history}}
 
 Trả lời bằng tiếng Việt, kèm trích dẫn chính xác (Điều X khoản Y Luật Z).
 Trả về JSON với keys: answer (string), citations (array).

@@ -6,10 +6,27 @@ Abstract LLMClient with configurable providers:
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import os
 from abc import ABC, abstractmethod
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
+
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 1.0  # seconds
+RETRY_BACKOFF = 2.0  # exponential backoff multiplier
+RETRYABLE_ERRORS = (
+    "rate_limit",
+    "timeout",
+    "connection",
+    "503",
+    "502",
+    "500",
+)
 
 
 class LLMClient(ABC):
@@ -89,16 +106,34 @@ class OpenAIClient(LLMClient):
             "temperature": temperature,
         }
 
-        response = await client.chat.completions.create(**kwargs)
-        content = response.choices[0].message.content.strip()
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = await client.chat.completions.create(**kwargs)
+                content = response.choices[0].message.content.strip()
 
-        # Strip markdown code blocks if present
-        if content.startswith("```"):
-            lines = content.split("\n")
-            lines = [l for l in lines if not l.startswith("```")]
-            content = "\n".join(lines)
+                # Strip markdown code blocks if present
+                if content.startswith("```"):
+                    lines = content.split("\n")
+                    lines = [l for l in lines if not l.startswith("```")]
+                    content = "\n".join(lines)
 
-        return json.loads(content)
+                return json.loads(content)
+
+            except Exception as e:
+                last_error = e
+                error_str = str(e).lower()
+                is_retryable = any(err in error_str for err in RETRYABLE_ERRORS)
+
+                if not is_retryable or attempt == MAX_RETRIES - 1:
+                    logger.error(f"LLM call failed after {attempt + 1} attempts: {e}")
+                    raise
+
+                delay = RETRY_BASE_DELAY * (RETRY_BACKOFF ** attempt)
+                logger.warning(f"LLM call failed (attempt {attempt + 1}/{MAX_RETRIES}), retrying in {delay}s: {e}")
+                await asyncio.sleep(delay)
+
+        raise last_error  # Should never reach here
 
     async def extract(
         self,
