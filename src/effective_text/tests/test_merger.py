@@ -18,14 +18,14 @@ from __future__ import annotations
 import pytest
 from datetime import date
 
-from effective_text.models import (
+from src.effective_text.models import (
     AmendmentAction, Amendment, AmendmentChain,
     ComposedArticle, ValidityStatus,
 )
-from effective_text.merger import TextMerger, VOIDED_MARKER
-from effective_text.validator import HopNhatValidator
-from effective_text.chain import AmendmentChainTraverser
-from effective_text.current import CurrentStatusComputer
+from src.effective_text.merger import TextMerger, VOIDED_MARKER
+from src.effective_text.validator import HopNhatValidator
+from src.effective_text.chain import AmendmentChainTraverser
+from src.effective_text.current import CurrentStatusComputer
 
 
 # ---------------------------------------------------------------------------

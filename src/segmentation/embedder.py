@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -36,6 +37,10 @@ NEO4J_BATCH_SIZE = 1_000  # articles per Neo4j write transaction
 
 EMBED_DIM = 1024          # harrier-0.6b (updated) output dimension
 VECTOR_INDEX_NAME = "article_embeddings"  # used by Người C's queries
+
+# Retry configuration for embedding service
+EMBED_MAX_RETRIES = 3
+EMBED_RETRY_DELAY = 2.0  # seconds
 
 
 class ArticleEmbedder:
@@ -168,19 +173,38 @@ class ArticleEmbedder:
 
     def _call_embed_service(self, texts: list[str]) -> list[list[float]]:
         """
-        Call Người A's embedding API.
+        Call Người A's embedding API with retry logic.
         """
-
         import requests
-        resp = requests.post(self._url + "/embed", json={"texts": texts})
-        resp.raise_for_status()
-        data = resp.json()
-        embeddings = data.get("embeddings", [])
-        if len(embeddings) != len(texts):
-            raise RuntimeError(f"Expected {len(texts)} embeddings, got {len(embeddings)}")
-        if embeddings and len(embeddings[0]) != EMBED_DIM:
-            raise RuntimeError(f"Expected {EMBED_DIM} dims, got {len(embeddings[0])}")
-        return embeddings
+
+        last_error = None
+        for attempt in range(EMBED_MAX_RETRIES):
+            try:
+                resp = requests.post(
+                    self._url + "/embed",
+                    json={"texts": texts},
+                    timeout=60,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                embeddings = data.get("embeddings", [])
+                if len(embeddings) != len(texts):
+                    raise RuntimeError(f"Expected {len(texts)} embeddings, got {len(embeddings)}")
+                if embeddings and len(embeddings[0]) != EMBED_DIM:
+                    raise RuntimeError(f"Expected {EMBED_DIM} dims, got {len(embeddings[0])}")
+                return embeddings
+
+            except Exception as e:
+                last_error = e
+                if attempt < EMBED_MAX_RETRIES - 1:
+                    delay = EMBED_RETRY_DELAY * (2 ** attempt)
+                    logger.warning(
+                        f"Embedding service failed (attempt {attempt + 1}/{EMBED_MAX_RETRIES}), "
+                        f"retrying in {delay}s: {e}"
+                    )
+                    time.sleep(delay)
+
+        raise last_error  # type: ignore[misc]
 
     def _ensure_vector_index(self) -> None:
         """

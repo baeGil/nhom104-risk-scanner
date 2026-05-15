@@ -9,8 +9,8 @@ Fixtures below include real Vietnamese legal text snippets to test against.
 from __future__ import annotations
 
 import pytest
-from segmentation.models import HierarchyType, ConfidenceLevel
-from segmentation.parser import (
+from src.segmentation.models import HierarchyType, ConfidenceLevel
+from src.segmentation.parser import (
     LegalDocumentParser,
     _is_preamble,
     _is_closing,
@@ -18,7 +18,7 @@ from segmentation.parser import (
     build_uid,
     RE_DIEU, RE_KHOAN, RE_CHUONG, RE_DIEM,
 )
-from segmentation.confidence import ConfidenceScorer
+from src.segmentation.confidence import ConfidenceScorer
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +193,7 @@ class TestConfidenceScorer:
 
     @pytest.mark.skip(reason="T1.2 not yet implemented (also needs T1.1)")
     def test_high_confidence_when_all_articles_found(self, scorer):
-        from segmentation.models import ParseResult, Segment
+        from src.segmentation.models import ParseResult, Segment
         result = ParseResult(doc_id="1", article_count=10)
         scored = scorer.score(result, expected_article_count=10)
         assert scored.confidence_level == ConfidenceLevel.HIGH
@@ -201,7 +201,7 @@ class TestConfidenceScorer:
 
     @pytest.mark.skip(reason="T1.2 not yet implemented")
     def test_low_confidence_when_few_articles_found(self, scorer):
-        from segmentation.models import ParseResult
+        from src.segmentation.models import ParseResult
         result = ParseResult(doc_id="2", article_count=3)
         scored = scorer.score(result, expected_article_count=100)
         assert scored.confidence_level == ConfidenceLevel.LOW

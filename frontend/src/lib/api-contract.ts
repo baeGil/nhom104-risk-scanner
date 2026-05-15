@@ -19,16 +19,28 @@ export async function uploadContract(file: File): Promise<{ jobId: string }> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/contracts/upload`, {
-    method: "POST",
-    body: formData,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for uploads
 
-  if (!response.ok) {
-    throw new Error("Upload failed");
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/contracts/upload`, {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+      headers: {
+        // Don't set Content-Type — browser sets it with boundary for FormData
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: "Upload failed" }));
+      throw new Error(error.detail || `Upload failed: ${response.status}`);
+    }
+
+    return response.json();
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return response.json();
 }
 
 export async function getJobStatus(jobId: string): Promise<ContractJob> {

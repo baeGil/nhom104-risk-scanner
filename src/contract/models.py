@@ -3,11 +3,15 @@ Data models for the contract parser module.
 
 Contract: Output of ContractParser with raw/redacted text and PII mapping.
 ParseError: Exception class for parsing failures.
+ContractClause: Extracted clause from a contract (T4.2).
+ComplianceResult: Compliance analysis output (T4.4).
+PolicyClassification: Policy review classification (T4.6).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+from enum import Enum
 from typing import Optional
 
 
@@ -66,3 +70,102 @@ class ParseError(Exception):
         if self.error_type != "unknown":
             parts.append(f"Error type: {self.error_type}")
         return " | ".join(parts)
+
+
+# ── Contract Clause Models (T4.2) ──────────────────────────────────────────
+
+class ClauseType(str, Enum):
+    """Predefined contract clause types."""
+    THANH_TOAN = "thanh_toán"
+    BAO_HANH = "bảo_hành"
+    PHAT = "phạt"
+    CHAM_DUT = "chấm_dứt"
+    BOI_THUONG = "bồi_thường"
+    BAO_MAT = "bảo_mật"
+    GIAI_QUYET_TRANH_CHAP = "giải_quyết_tranh_chấp"
+    FORCE_MAJEURE = "force_majeure"
+    NGHIA_VU = "nghĩa_vụ"
+    QUYEN_HAN = "quyền_hạn"
+    THOI_HAN = "thời_hạn"
+    KHAC = "khác"
+
+
+@dataclass
+class ContractClause:
+    """
+    Extracted clause from a contract.
+
+    Attributes:
+        id: UUID string uniquely identifying this clause
+        index: Sequential clause number (1, 2, 3...)
+        clause_type: Type of clause (thanh_toán, phạt, etc.)
+        text_content: Full text of the clause
+        parties_involved: List of party names mentioned
+        obligations: List of obligations described
+        amount: Monetary value if present
+        deadline: Deadline/date if present
+        embedding: 1024-dim vector embedding (set by T4.2)
+    """
+    id: str
+    index: int
+    clause_type: str
+    text_content: str
+    parties_involved: list[str] = field(default_factory=list)
+    obligations: list[str] = field(default_factory=list)
+    amount: Optional[str] = None
+    deadline: Optional[str] = None
+    embedding: Optional[list[float]] = None
+
+
+# ── Compliance Analysis Models (T4.4) ──────────────────────────────────────
+
+class RiskLevel(str, Enum):
+    """Risk severity levels."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+@dataclass
+class ComplianceViolation:
+    """
+    A specific legal violation found in a contract clause.
+
+    Attributes:
+        clause: Clause type or description
+        description: What the violation is
+        citation: Legal citation (e.g., "Điều 301 Luật Thương mại 2005")
+        severity: low, medium, high
+        verified: Whether the citation has been verified against Neo4j
+    """
+    clause: str
+    description: str
+    citation: str
+    severity: str = "medium"
+    verified: bool = False
+
+
+@dataclass
+class ComplianceResult:
+    """
+    Full compliance analysis result for a contract.
+
+    Attributes:
+        violations: List of legal violations found
+        risks: List of legal risks identified
+        suggestions: List of suggested text changes
+        citations: List of legal citations with verification status
+    """
+    violations: list[ComplianceViolation] = field(default_factory=list)
+    risks: list[str] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
+    citations: list[dict] = field(default_factory=list)
+
+
+# ── Policy Review Models (T4.6) ────────────────────────────────────────────
+
+class PolicyClassification(str, Enum):
+    """Policy compliance classification."""
+    COMPLIANT_AND_EFFICIENT = "compliant_and_efficient"
+    COMPLIANT_BUT_RESTRICTIVE = "compliant_but_restrictive"
+    NON_COMPLIANT = "non_compliant"
