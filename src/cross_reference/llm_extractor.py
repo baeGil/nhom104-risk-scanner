@@ -1,196 +1,208 @@
-import os
-import logging
+import asyncio
 import json
-from typing import List, Dict, Any, Optional
-from neo4j import GraphDatabase
-from dotenv import load_dotenv
+import os
+import pandas as pd
+import httpx
+from tqdm.asyncio import tqdm
+from src.config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL
 
-load_dotenv()
+# Prompt template for batch processing
+SYSTEM_PROMPT = """Bạn là chuyên gia phân tích văn bản pháp luật Việt Nam. Nhiệm vụ của bạn là trích xuất các mối quan hệ pháp luật từ DANH SÁCH các đoạn văn bản được cung cấp bên dưới.
 
-logger = logging.getLogger(__name__)
+Có 3 loại quan hệ cần trích xuất:
+1. internal: Dẫn chiếu nội bộ trong cùng một văn bản (ví dụ: "Điều 10 Luật này", "Khoản 1 Điều này", "Nghị định này"). 
+   - target_doc: Ghi là "luật này", "nghị định này", hoặc "thông tư này".
+2. external: Dẫn chiếu đến văn bản khác (ví dụ: "Điều 10 Luật Xử lý vi phạm hành chính", "Nghị định số 46/2016/NĐ-CP").
+   - target_doc: Ghi tên hoặc số hiệu văn bản cụ thể.
+3. modify: Các quan hệ sửa đổi, bổ sung, thay thế hoặc bãi bỏ văn bản khác. 
+   - Chỉ lấy quan hệ CHỦ ĐỘNG (ví dụ: "Điều 1 bổ sung Điều 2" -> lấy; "Điều 1 được bổ sung bởi Điều 2" -> KHÔNG lấy).
+   - relationship_type: Ghi là "modify".
 
-class LLMExtractor:
-    """
-    Handles LLM-based extraction of legal relationships using waterfall context from Neo4j.
-    """
-    def __init__(self, uri: Optional[str] = None, user: Optional[str] = None, password: Optional[str] = None):
-        if uri:
-            self.driver = GraphDatabase.driver(uri, auth=(user, password))
-        else:
-            self.driver = None
+QUY TẮC TÁCH: 
+Nếu một câu dẫn chiếu đến nhiều đối tượng (ví dụ: "Khoản 1, Khoản 2 Điều 10"), bạn PHẢI tách thành các block riêng biệt.
 
-        # Khởi tạo OpenAI client 1 lần duy nhất để tái dùng connection pool
-        from openai import OpenAI
-
-        _raw_base_url = os.environ.get("OPENAI_BASE_URL", "")
-        base_url = _raw_base_url.strip() if _raw_base_url.strip() else None
-
-        # Xóa biến môi trường rỗng để tránh SDK tự đọc và dùng URL không hợp lệ
-        if not base_url and "OPENAI_BASE_URL" in os.environ:
-            del os.environ["OPENAI_BASE_URL"]
-
-        client_kwargs: Dict[str, Any] = {
-            "api_key": os.getenv("OPENAI_API_KEY"),
-            "timeout": 120.0,   # Tăng lên 120s để chịu được server chậm / rate limit
-            "max_retries": 2,
-        }
-        if base_url:
-            client_kwargs["base_url"] = base_url
-
-        self._model = os.getenv("OPENAI_MODEL", "gpt-5-nano").strip()
-        self._client = OpenAI(**client_kwargs)
-        logger.info(f"LLMExtractor: model={self._model}, base_url={base_url or '(OpenAI default)'}")
-
-    def close(self):
-        if self.driver:
-            self.driver.close()
-
-    def get_waterfall_context(self, doc_id: str) -> List[Dict[str, Any]]:
-        """
-        Retrieves hierarchical context for all leaf nodes (Article/Clause/Point) in a document.
-        Leaf nodes are the lowest available level in the hierarchy.
-        """
-        if not self.driver:
-            logger.error("Neo4j driver is not initialized. Cannot fetch waterfall context.")
-            return []
-        query = """
-        MATCH (d:Document {id: $doc_id})
-        MATCH (d)-[:HAS_CHAPTER|HAS_SECTION|HAS_ARTICLE*..3]->(a:Article)
-        OPTIONAL MATCH (a)-[:HAS_CLAUSE]->(c:Clause)
-        OPTIONAL MATCH (c)-[:HAS_POINT]->(p:Point)
-        RETURN 
-            a.uid AS a_uid, a.clean_text AS a_txt, toInteger(a.index) AS a_idx,
-            c.uid AS c_uid, c.clean_text AS c_txt, toInteger(c.index) AS c_idx,
-            p.uid AS p_uid, p.clean_text AS p_txt, p.letter AS p_letter
-        ORDER BY a_idx, c_idx, p_letter
-        """
-        
-        leaf_contexts = []
-        with self.driver.session() as session:
-            result = session.run(query, doc_id=str(doc_id))
-            for record in result:
-                # Determine the leaf node and build context
-                a_txt = (record["a_txt"] or "").strip()
-                c_txt = (record["c_txt"] or "").strip()
-                p_txt = (record["p_txt"] or "").strip()
-                
-                # Combine waterfall context: Article -> Clause -> Point
-                context_parts = [a_txt]
-                if c_txt:
-                    context_parts.append(c_txt)
-                if p_txt:
-                    context_parts.append(p_txt)
-                
-                full_context = "\n".join(context_parts)
-                
-                # The leaf node is the most specific one available
-                leaf_uid = record["p_uid"] or record["c_uid"] or record["a_uid"]
-                
-                # Avoid duplicates if a Clause has multiple Points (Cypher returns a row per Point)
-                # We only want to process the actual leaf nodes.
-                # If p_uid exists, it's the leaf. If not, c_uid is the leaf.
-                leaf_contexts.append({
-                    "uid": leaf_uid,
-                    "text": full_context
-                })
-        
-        # Deduplicate leaf_contexts based on UID (just in case, though Cypher logic above is mostly fine)
-        seen_uids = set()
-        unique_contexts = []
-        for ctx in leaf_contexts:
-            if ctx["uid"] not in seen_uids:
-                unique_contexts.append(ctx)
-                seen_uids.add(ctx["uid"])
-                
-        return unique_contexts
-    def extract_batch(self, batch: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Sends a batch of contexts to the LLM and returns the structured relationships.
-        """
-        llm_input = {ctx["uid"]: ctx["text"] for ctx in batch}
-
-        system_prompt = """Bạn là chuyên gia pháp luật Việt Nam, chuyên về phân tích và bóc tách các mối quan hệ giữa các văn bản quy phạm pháp luật.
-Nhiệm vụ của bạn là đọc các đoạn văn bản (context) được cung cấp và trích xuất các quan hệ pháp lý dưới dạng JSON.
-
-HƯỚNG DẪN TRÍCH XUẤT:
-1. Phân loại quan hệ (action_type):
-   - sua_doi: Sửa đổi nội dung điều/khoản/điểm hiện có.
-   - bo_sung: Bổ sung thêm điều/khoản/điểm mới.
-   - bai_bo: Bãi bỏ, hủy bỏ hiệu lực một phần hoặc toàn bộ.
-   - thay_the: Thay thế nội dung, cụm từ hoặc toàn bộ văn bản.
-   - internal_ref: Dẫn chiếu tới các phần khác trong CÙNG văn bản.
-   - external_ref: Dẫn chiếu tới các văn bản quy phạm pháp luật khác.
-    - exception: Các trường hợp ngoại lệ (thường có từ "trừ", "ngoại trừ").
-
-2. Quy tắc chính xác pháp lý (QUAN TRỌNG):
-   - Rule of Explicit Citation: CHỈ trích xuất quan hệ khi văn bản có dẫn chiếu ĐÍCH DANH tên văn bản hoặc số Điều/Khoản/Điểm cụ thể. Nếu một đoạn văn chỉ nêu nội dung quy định, nghĩa vụ, hoặc hình phạt mà không nhắc đến một thực thể pháp lý khác, bạn phải trả về danh sách rỗng `[]` cho UID đó.
-   - Rule of Internal Content: Tuyệt đối KHÔNG trích xuất các nội dung định nghĩa nội tại của chính văn bản làm quan hệ `bo_sung`. Ví dụ: "Điều 4. Biện pháp khắc phục..." chỉ là nội dung của Điều 4, nó KHÔNG phải là hành động bổ sung cho Điều 4.
-   - Rule of Verbatim: Trong trường `quote_context`, bạn PHẢI trích dẫn NGUYÊN VĂN toàn bộ câu hoặc đoạn văn chứa quan hệ đó từ context. KHÔNG được tóm tắt, KHÔNG được dùng dấu "..." để lược bớt, KHÔNG được sửa đổi dù chỉ một dấu phẩy.
-   - Rule of Title: KHÔNG trích xuất quan hệ từ các văn bản được nhắc đến chỉ như một phần của TÊN (Tiêu đề) của văn bản đang xét.
-   - Rule of Passive History: BỎ QUA các hành động mang tính chất liệt kê lịch sử bị động (ví dụ: "đã được sửa đổi bởi...", "theo quy định đã được sửa đổi tại..."). Chỉ trích xuất các hành động CHỦ ĐỘNG do văn bản hiện tại thực hiện.
-    - Rule of Enumeration: Nếu câu văn liệt kê nhiều đối tượng (ví dụ: "Điều 1, 2 và 3" hoặc "khoản 1, 2, 3 Điều 9"), bạn PHẢI tách chúng thành các object riêng biệt. Ví dụ: "khoản 1 và 2 Điều 5" phải được tách thành 2 object: một cái cho khoản 1 Điều 5, một cái cho khoản 2 Điều 5.
-   - Rule of Context Override: KHÔNG tách liệt kê nếu danh sách đó nằm trong tiêu đề của một văn bản khác.
-
-3. Định dạng đầu ra: Trả về một JSON object duy nhất có khóa là `results`. Mỗi phần tử trong `results` phải tương ứng với một `uid` được cung cấp trong input. Nếu một UID không chứa dẫn chiếu pháp lý nào, kết quả phải là mảng rỗng: `"uid": []`.
-
-Ví dụ Output (Minh họa Rule of Enumeration):
+QUY TẮC BATCH:
+Tôi sẽ cung cấp danh sách các đoạn văn bản, mỗi đoạn có một ID (source_uid).
+Bạn phải trả về một MẢNG JSON duy nhất chứa tất cả các quan hệ tìm thấy trong tất cả các đoạn.
+Mỗi object trong mảng phải có cấu trúc:
 {
-  "results": {
-    "doc_123_dieu_1": [
-      {
-        "action_type": "external_ref",
-        "target": {"document_name": "Luật A", "dieu": "9", "khoan": "1", "diem": null},
-        "quote_context": "Đình chỉ các hoạt động quy định tại khoản 1, 2 Điều 9 của Luật A"
-      },
-      {
-        "action_type": "external_ref",
-        "target": {"document_name": "Luật A", "dieu": "9", "khoan": "2", "diem": null},
-        "quote_context": "Đình chỉ các hoạt động quy định tại khoản 1, 2 Điều 9 của Luật A"
-      }
-    ]
-  }
+  "source_uid": "ID của đoạn văn bản chứa quan hệ này",
+  "target_doc": "tên/số hiệu văn bản hoặc 'luật này'...",
+  "target_article": "số điều",
+  "target_clause": "số khoản",
+  "target_diem": "tên điểm",
+  "relationship_type": "internal" | "external" | "modify"
 }
-"""
 
+Chỉ trả về JSON array, không giải thích gì thêm."""
+
+async def process_batch(http_client, batch_segments):
+    """Xử lý một batch các đoạn văn bản."""
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    # Ghép các đoạn văn bản lại thành 1 prompt
+    formatted_texts = []
+    for i, seg in enumerate(batch_segments):
+        formatted_texts.append(f"[{i+1}] ID: {seg['uid']}\nNội dung: {seg['text']}")
+    
+    combined_text = "\n\n".join(formatted_texts)
+    
+    data = {
+        "model": OPENAI_MODEL,
+        "messages": [
+            {"role": "system", "content": "Bạn là chuyên gia pháp luật. Trả về duy nhất 1 JSON array chứa các quan hệ trích xuất được. Mỗi quan hệ phải có source_uid chính xác."},
+            {"role": "user", "content": f"{SYSTEM_PROMPT}\n\nDANH SÁCH VĂN BẢN:\n{combined_text}"}
+        ],
+        "temperature": 0.0
+    }
+    
+    url = f"{OPENAI_BASE_URL}/chat/completions" if OPENAI_BASE_URL else "https://api.openai.com/v1/chat/completions"
+
+    for attempt in range(3):
         try:
-            response = self._client.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": json.dumps(llm_input, ensure_ascii=False)}
-                ],
-                response_format={"type": "json_object"}
-            )
-
-            usage = response.usage
-            logger.info(
-                f"LLM done — in={usage.prompt_tokens} tok, out={usage.completion_tokens} tok"
-            )
-            content = response.choices[0].message.content
-            return json.loads(content)
+            response = await http_client.post(url, headers=headers, json=data, timeout=60.0)
+            response.raise_for_status()
+            
+            resp_json = response.json()
+            content = resp_json['choices'][0]['message']['content'].strip()
+            usage = resp_json.get('usage', {})
+            
+            # Log tokens
+            in_tokens = usage.get('prompt_tokens', 0)
+            out_tokens = usage.get('completion_tokens', 0)
+            # print(f"  [Batch] In: {in_tokens}, Out: {out_tokens}")
+            
+            # Xử lý markdown code blocks
+            if content.startswith("```"):
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:].strip()
+            
+            result = json.loads(content)
+            
+            if not isinstance(result, list):
+                if isinstance(result, dict):
+                    for key in ['results', 'relationships', 'data']:
+                        if key in result and isinstance(result[key], list):
+                            result = result[key]
+                            break
+                    else:
+                        result = [result]
+                else:
+                    result = []
+            
+            return result, in_tokens, out_tokens
         except Exception as e:
-            logger.error(f"Error calling OpenAI API: {e}")
-            return {"results": {uid: [] for uid in llm_input.keys()}, "error": str(e)}
+            if attempt == 2:
+                print(f"Error processing batch: {e}")
+            await asyncio.sleep(2 * (attempt + 1))
+    return [], 0, 0
 
-    def batch_by_word_count(self, contexts: List[Dict[str, Any]], max_words: int = 1500) -> List[List[Dict[str, Any]]]:
-        """
-        Groups context nodes into batches based on total word count.
-        """
-        batches = []
-        current_batch = []
-        current_word_count = 0
-        
-        for ctx in contexts:
-            word_count = len(ctx["text"].split())
-            if current_word_count + word_count > max_words and current_batch:
-                batches.append(current_batch)
-                current_batch = []
-                current_word_count = 0
-            
-            current_batch.append(ctx)
-            current_word_count += word_count
-            
-        if current_batch:
+def create_batches_by_chars(segments, max_chars=4000):
+    """Chia segments thành các batch dựa trên số lượng ký tự."""
+    batches = []
+    current_batch = []
+    current_chars = 0
+    
+    for seg in segments:
+        text_len = len(seg['text'])
+        if current_chars + text_len > max_chars and current_batch:
             batches.append(current_batch)
-            
-        return batches
+            current_batch = []
+            current_chars = 0
+        
+        current_batch.append(seg)
+        current_chars += text_len
+        
+    if current_batch:
+        batches.append(current_batch)
+        
+    return batches
+
+async def main():
+    # Load data
+    input_path = 'scratch/legal_segments_for_colab.parquet'
+    if not os.path.exists(input_path):
+        input_path = '../../scratch/legal_segments_for_colab.parquet'
+    
+    if not os.path.exists(input_path):
+        print(f"Error: File {input_path} not found.")
+        return
+
+    df = pd.read_parquet(input_path)
+    all_segments = df.to_dict('records')
+    
+    # --- Checkpoint / Resume Logic ---
+    output_dir = 'scratch' if os.path.exists('scratch') else '../../scratch'
+    output_path = os.path.join(output_dir, 'extracted_relations_batched.json')
+    
+    all_results = []
+    processed_uids = set()
+    
+    if os.path.exists(output_path):
+        try:
+            with open(output_path, 'r', encoding='utf-8') as f:
+                all_results = json.load(f)
+                processed_uids = {res.get('source_uid') for res in all_results if res.get('source_uid')}
+            print(f"Loaded {len(all_results)} existing relations from {len(processed_uids)} processed segments.")
+        except Exception as e:
+            print(f"Warning: Could not load existing results: {e}")
+            all_results = []
+    
+    # Lọc những segments chưa được xử lý
+    segments_to_process = [s for s in all_segments if s['uid'] not in processed_uids]
+    
+    # GIỚI HẠN XỬ LÝ CHO MỖI LẦN CHẠY (Ví dụ chia làm 3 lần cho 7000 segment)
+    CHUNK_SIZE = 2350
+    
+    if not segments_to_process:
+        print("✅ All segments already processed!")
+        return
+
+    segments_current_run = segments_to_process[:CHUNK_SIZE]
+    print(f"Processing chunk: {len(segments_current_run)} segments (Remaining total: {len(segments_to_process)})")
+    
+    # Chia batch theo ký tự
+    batches = create_batches_by_chars(segments_current_run, max_chars=5000)
+    print(f"Current run: {len(segments_current_run)} segments in {len(batches)} batches.")
+
+    total_in_tokens = 0
+    total_out_tokens = 0
+    new_results = []
+    
+    async with httpx.AsyncClient() as http_client:
+        MAX_CONCURRENT = 3
+        sem = asyncio.Semaphore(MAX_CONCURRENT)
+
+        async def batch_task(batch):
+            async with sem:
+                res, in_t, out_t = await process_batch(http_client, batch)
+                return res, in_t, out_t
+
+        tasks = [batch_task(b) for b in batches]
+        
+        for f in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
+            batch_res, in_t, out_t = await f
+            new_results.extend(batch_res)
+            total_in_tokens += in_t
+            total_out_tokens += out_t
+
+    # Gộp kết quả mới vào kết quả cũ
+    all_results.extend(new_results)
+    
+    # Lưu lại
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(all_results, f, ensure_ascii=False, indent=2)
+    
+    print(f"\n✅ Chunk complete!")
+    print(f"New relationships found: {len(new_results)}")
+    print(f"Total input tokens: {total_in_tokens}")
+    print(f"Total output tokens: {total_out_tokens}")
+    print(f"Final total relationships in file: {len(all_results)}")
+    print(f"Results saved to: {output_path}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
