@@ -24,7 +24,7 @@ def normalize_so_hieu(so_hieu):
 
 def main():
     print("Đang đọc file parquet metadata...")
-    df = pd.read_parquet("data/metadata_deduped.parquet")
+    df = pd.read_parquet("data/metadata.parquet")
     df['id'] = df['id'].astype(str)
     
     # Tạo từ điển tra cứu: Chuẩn hóa cả số ký hiệu trong Parquet
@@ -37,7 +37,7 @@ def main():
             lookup_exact[skh_clean] = doc_id
             
     print("Đang đọc file JSON...")
-    with open("data_updated.json", "r", encoding="utf-8") as f:
+    with open("luat_lao_dong_schema.json", "r", encoding="utf-8") as f:
         data = json.load(f)
         
     matched_count = 0
