@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 import os
 import logging
@@ -7,6 +8,7 @@ from src.segmentation.parser import LegalDocumentParser
 from src.segmentation.writer import SegmentWriter
 from src.segmentation.confidence import ConfidenceScorer
 from src.cross_reference.extractor import CrossReferenceExtractor
+from src.segmentation.models import HierarchyType
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s — %(message)s")
 logger = logging.getLogger(__name__)
@@ -14,6 +16,30 @@ logger = logging.getLogger(__name__)
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASS = os.getenv("NEO4J_PASSWORD", "password")
+
+def normalize_so_hieu(so_hieu):
+    so_hieu = str(so_hieu).strip().upper()
+    match = re.search(r'(\d+/\d+/[A-ZĐ0-9\-]+)', so_hieu)
+    if match:
+        core_skh = match.group(1)
+    else:
+        match_fallback = re.search(r'^([^\s\(\)]+)', so_hieu)
+        if match_fallback:
+            core_skh = match_fallback.group(1)
+        else:
+            core_skh = so_hieu
+    parts = core_skh.split('/')
+    stripped_parts = [re.sub(r'^0+', '', p) if re.match(r'^0+\d+', p) else p for p in parts]
+    return '/'.join(stripped_parts)
+
+def parse_uid_parts(uid):
+    if not uid: return "", "", ""
+    p = uid.split('_')
+    d = k = di = ""
+    if 'dieu' in p: d = p[p.index('dieu')+1]
+    if 'khoan' in p: k = p[p.index('khoan')+1]
+    if 'diem' in p: di = p[p.index('diem')+1]
+    return d, k, di
 
 def ingest_document_shell(tx, row):
     query = """
@@ -35,41 +61,52 @@ def ingest_document_shell(tx, row):
     }
     tx.run(query, **params)
 
-
-
 def run_unified_pipeline():
-    # 1.1 Infrastructure Skeleton
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASS))
     parser = LegalDocumentParser()
-    scorer = ConfidenceScorer()
     writer = SegmentWriter(driver)
+    
+    logger.info("Đọc data_updated_with_ids.json...")
+    target_docs = set()
+    with open("data_updated_with_ids.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+        for cat in data:
+            for doc in cat.get("van_ban", []):
+                doc_id = doc.get("doc_id")
+                if doc_id:
+                    target_docs.add(str(doc_id))
+    
+    logger.info(f"Tổng số văn bản mục tiêu cần nạp từ JSON: {len(target_docs)}")
     
     logger.info("Đọc metadata_deduped.parquet...")
     meta_df = pd.read_parquet("data/metadata_deduped.parquet")
+    meta_df['id'] = meta_df['id'].astype(str)
     
-    # 1.2 Filter loai_van_ban and ngay_ban_hanh
-    core_types = ['Thông tư', 'Nghị định', 'Luật', 'Bộ luật']
-    meta_df['ngay_ban_hanh'] = pd.to_datetime(meta_df['ngay_ban_hanh'], errors='coerce')
-    filtered_meta = meta_df[
-        (meta_df['loai_van_ban'].isin(core_types)) &
-        (meta_df['ngay_ban_hanh'] >= '2000-01-01')
-    ]
-    logger.info(f"Tổng số văn bản sau khi lọc: {len(filtered_meta)}")
+    # Lọc chỉ những văn bản có trong list mục tiêu
+    filtered_meta = meta_df[meta_df['id'].isin(target_docs)].copy()
+    filtered_meta['ngay_ban_hanh'] = pd.to_datetime(filtered_meta['ngay_ban_hanh'], errors='coerce')
+    logger.info(f"Số lượng văn bản tìm thấy trong Parquet metadata: {len(filtered_meta)}")
     
-    # Build lookup table for extractor
-    lookup = {}
-    for _, row in filtered_meta.iterrows():
-        if pd.notna(row.get('normalized_so_ky_hieu')):
-            lookup[row['normalized_so_ky_hieu']] = str(row['id'])
+    # Load lookup table from JSON
+    lookup_path = "data/so_ky_hieu_lookup.json"
+    if not os.path.exists(lookup_path):
+        logger.info("Không thấy bảng tra cứu JSON, đang tạo mới...")
+        from src.data_pipeline.build_lookup_json import build
+        build()
+        
+    with open(lookup_path, "r", encoding="utf-8") as f:
+        lookup = json.load(f)
+    logger.info(f"Đã nạp bảng tra cứu từ JSON ({len(lookup)} mục).")
             
     extractor = CrossReferenceExtractor(lookup_table=lookup)
     
     logger.info("Đọc content_clean.parquet...")
     content_df = pd.read_parquet("data/content_clean.parquet")
-    content_dict = content_df.set_index('id')['clean_html'].to_dict()
+    content_df['id'] = content_df['id'].astype(str)
+    content_dict = content_df[content_df['id'].isin(target_docs)].set_index('id')['clean_html'].to_dict()
     
     total_docs = 0
-    batch_size = 50  # 3.1 Batching to prevent memory issues
+    batch_size = 50
     batch_segments = []
     part_idx = 0
     
@@ -78,119 +115,160 @@ def run_unified_pipeline():
     external_refs_data = []
     modifies_refs_data = []
     
+    
     with driver.session() as session:
         for idx, row in filtered_meta.iterrows():
             doc_id = str(row['id'])
-            
-            # 1.3 Stage 1: Shell Ingestion
+            all_relationships = []
+            # Stage 1: Shell Ingestion
             try:
                 session.execute_write(ingest_document_shell, row)
             except Exception as e:
                 logger.error(f"Lỗi nạp shell {doc_id}: {e}")
-                continue # 3.2 Error handling skip
+                continue
                 
             html = content_dict.get(doc_id, "")
             if not html:
                 continue
                 
             try:
-                # 2.1 Stage 2: Preamble Extraction
+                # Stage 2: Preamble Extraction
                 preamble_text = ""
                 parts = re.split(r'(<[^>]+>\s*Điều\s+1[\.:\s])', html, maxsplit=1, flags=re.IGNORECASE)
                 if len(parts) > 1:
                     preamble_text = parts[0]
                 primary_target_ref = extractor._extract_preamble_anchor(preamble_text)
-
                 
-                # 2.2 Stage 3: Segmentation
+                # Stage 3: Segmentation
                 result = parser.parse(
                     doc_id=doc_id,
                     clean_html=html,
                     loai_van_ban=row.get('loai_van_ban', '')
                 )
-                # result = scorer.score(result, expected_article_count=None)
                 batch_segments.append(result)
                 
-                # 2.3 & 2.4 Stage 4: Cross-Reference & Context-Aware Extraction
-                is_modifying = (primary_target_ref is not None) or ("sửa đổi" in str(row.get('title', '')).lower())
+                # Stage 4: Cross-Reference & Context-Aware Extraction
+                # is_modifying = (primary_target_ref is not None) or ("sửa đổi" in str(row.get('title', '')).lower())
+                # uid_to_seg = {s.uid: s for s in result.segments if s.uid}
                 
-                for article in result.articles():
-                    ext_result = extractor.extract_from_article(
-                        doc_id=doc_id,
-                        article_uid=article.uid,
-                        article_text=article.text_content,
-                        is_modifying_doc=is_modifying
-                    )
+                # last_target_doc_id = primary_target_ref.target_doc_id if primary_target_ref else None
+                # last_target_article = None
+                
+                # for seg in result.segments:
+                #     if seg.hierarchy_type not in [HierarchyType.DIEU, HierarchyType.KHOAN, HierarchyType.DIEM]:
+                #         continue
                     
-                    # Inject primary target if implicit
-                    for mod_ref in ext_result.modification_refs:
-                        if not mod_ref.target_doc_id and primary_target_ref and primary_target_ref.target_doc_id:
-                            mod_ref.target_doc_id = primary_target_ref.target_doc_id
-                            
-                    # Ingest relationships to list
-                    for r in ext_result.internal_refs:
-                        if r.target_article_index:
-                            target_uid = f"doc_{doc_id}_dieu_{r.target_article_index}"
-                            if article.uid != target_uid:
-                                internal_refs_data.append({
-                                    "source_uid": article.uid,
-                                    "target_uid": target_uid,
-                                    "context": r.context_text
-                                })
-                            
-                    for r in ext_result.external_refs:
-                        if r.target_doc_id:
-                            external_refs_data.append({
-                                "source_uid": article.uid,
-                                "target_doc_id": r.target_doc_id,
-                                "raw_skh": r.raw_so_ky_hieu,
-                                "context": r.context_text
-                            })
-                            
-                    for r in ext_result.modification_refs:
-                        if r.target_doc_id and r.target_article_index:
-                            action_str = r.action.value if hasattr(r.action, 'value') else str(r.action)
-                            modifies_refs_data.append({
-                                "source_uid": article.uid,
-                                "target_uid": f"doc_{r.target_doc_id}_dieu_{r.target_article_index}",
-                                "action": action_str,
-                                "target_clause": r.target_clause_index,
-                                "target_point": r.target_point_label,
-                                "context": r.context_text
-                            })
+                #     art_uid = cl_uid = pt_uid = None
+                #     curr = seg
+                #     if curr.hierarchy_type == HierarchyType.DIEM:
+                #         pt_uid = curr.uid
+                #         curr = uid_to_seg.get(curr.parent_uid)
+                #     if curr and curr.hierarchy_type == HierarchyType.KHOAN:
+                #         cl_uid = curr.uid
+                #         curr = uid_to_seg.get(curr.parent_uid)
+                #     if curr and curr.hierarchy_type == HierarchyType.DIEU:
+                #         art_uid = curr.uid
+                    
+                #     if not art_uid: continue
 
-            except Exception as e: # 3.2 Error handling
-                logger.error(f"Lỗi xử lý nội dung văn bản {doc_id}: {e}")
-                
+                #     ext_result = extractor.extract_from_article(
+                #         doc_id=doc_id,
+                #         article_uid=art_uid,
+                #         clause_uid=cl_uid,
+                #         point_uid=pt_uid,
+                #         article_text=seg.clean_text,
+                #         is_modifying_doc=is_modifying
+                #     )
+
+                #     src_art, src_cl, src_pt = parse_uid_parts(seg.uid)
+
+                #     # Thu thập Internal Refs
+                #     for r in ext_result.internal_refs:
+                #         target_uid = f"doc_{doc_id}_dieu_{r.target_article_index}"
+                #         if r.target_clause_index: target_uid += f"_khoan_{r.target_clause_index}"
+                #         if r.target_point_label: target_uid += f"_diem_{r.target_point_label}"
+                #         if seg.uid != target_uid:
+                #             internal_refs_data.append({
+                #                 "source_uid": seg.uid,
+                #                 "target_uid": target_uid,
+                #                 "is_exception": getattr(r, 'is_exception', False),
+                #                 "context": r.context_text.replace('\n', ' ')
+                #             })
+
+                #     # Thu thập External Refs
+                #     for r in ext_result.external_refs:
+                #         target_uid = f"doc_{r.target_doc_id}_dieu_{r.target_article_index}" if r.target_doc_id and r.target_article_index else ""
+                #         if target_uid and r.target_clause_index: target_uid += f"_khoan_{r.target_clause_index}"
+                #         if target_uid and r.target_point_label: target_uid += f"_diem_{r.target_point_label}"
+                #         external_refs_data.append({
+                #             "source_uid": seg.uid,
+                #             "target_doc_id": r.target_doc_id or "",
+                #             "target_uid": target_uid,
+                #             "raw_skh": r.raw_so_ky_hieu,
+                #             "is_exception": getattr(r, 'is_exception', False),
+                #             "context": r.context_text.replace('\n', ' ')
+                #         })
+                       
+
+                #     # Thu thập Modification Refs (có Rollback)
+                #     for r in ext_result.modification_refs:
+                #         if not r.target_doc_id:
+                #             if last_target_doc_id:
+                #                 r.target_doc_id = last_target_doc_id
+                #             elif primary_target_ref and primary_target_ref.target_doc_id:
+                #                 r.target_doc_id = primary_target_ref.target_doc_id
+                                
+                #         if r.target_doc_id and last_target_doc_id != r.target_doc_id:
+                #             last_target_doc_id = r.target_doc_id
+                #             last_target_article = None
+
+                #         if getattr(r, 'is_partial_ref', False) and not r.target_article_index:
+                #             r.target_article_index = last_target_article
+                #         elif r.target_article_index:
+                #             last_target_article = r.target_article_index
+                            
+                #         target_uid = f"doc_{r.target_doc_id}_dieu_{r.target_article_index}" if r.target_doc_id and r.target_article_index else ""
+                #         if target_uid and r.target_clause_index: target_uid += f"_khoan_{r.target_clause_index}"
+                #         if target_uid and r.target_point_label: target_uid += f"_diem_{r.target_point_label}"
+
+                #         action_str = r.action.value if hasattr(r.action, 'value') else str(r.action)
+                #         modifies_refs_data.append({
+                #             "source_uid": seg.uid,
+                #             "target_uid": target_uid,
+                #             "target_doc_id": r.target_doc_id or "",
+                #             "action": action_str,
+                #             "raw_skh": r.raw_target_so_ky_hieu,
+                #             "context": r.context_text.replace('\n', ' ')
+                #         })
+
+            except Exception as e:
+                logger.error(f"Lỗi xử lý nội dung văn bản {doc_id}: {e}")    
             total_docs += 1
             if len(batch_segments) >= batch_size:
                 writer.write_batch(batch_segments)
                 batch_segments = []
                 logger.info(f"Đã xử lý và nạp {total_docs} văn bản cốt lõi...")
                 
-            # Checkpoint quan hệ mỗi 200 văn bản
-            if total_docs % 200 == 0:
-                os.makedirs("data/relationships", exist_ok=True)
-                pd.DataFrame(internal_refs_data).to_parquet(f"data/relationships/internal_refs_part_{part_idx}.parquet")
-                pd.DataFrame(external_refs_data).to_parquet(f"data/relationships/external_refs_part_{part_idx}.parquet")
-                pd.DataFrame(modifies_refs_data).to_parquet(f"data/relationships/modifies_refs_part_{part_idx}.parquet")
-                logger.info(f"Đã checkpoint quan hệ part {part_idx} và giải phóng RAM.")
-                part_idx += 1
-                internal_refs_data.clear()
-                external_refs_data.clear()
-                modifies_refs_data.clear()
+            # if total_docs % 100 == 0:
+            #     os.makedirs("data/relationships", exist_ok=True)
+            #     pd.DataFrame(internal_refs_data).to_parquet(f"data/relationships/internal_refs_part_{part_idx}.parquet")
+            #     pd.DataFrame(external_refs_data).to_parquet(f"data/relationships/external_refs_part_{part_idx}.parquet")
+            #     pd.DataFrame(modifies_refs_data).to_parquet(f"data/relationships/modifies_refs_part_{part_idx}.parquet")
+            #     logger.info(f"Đã checkpoint quan hệ part {part_idx} và giải phóng RAM.")
+            #     part_idx += 1
+            #     internal_refs_data.clear()
+            #     external_refs_data.clear()
+            #     modifies_refs_data.clear()
                 
-        # Flush remaining
         if batch_segments:
             writer.write_batch(batch_segments)
             logger.info(f"Hoàn thành toàn bộ {total_docs} văn bản.")
             
-    # Save remaining relationships
-    os.makedirs("data/relationships", exist_ok=True)
-    pd.DataFrame(internal_refs_data).to_parquet(f"data/relationships/internal_refs_part_{part_idx}.parquet")
-    pd.DataFrame(external_refs_data).to_parquet(f"data/relationships/external_refs_part_{part_idx}.parquet")
-    pd.DataFrame(modifies_refs_data).to_parquet(f"data/relationships/modifies_refs_part_{part_idx}.parquet")
-    logger.info("Đã lưu toàn bộ các quan hệ cuối cùng vào thư mục data/relationships/")
+    # os.makedirs("data/relationships", exist_ok=True)
+    # pd.DataFrame(internal_refs_data).to_parquet(f"data/relationships/internal_refs_part_{part_idx}.parquet")
+    # pd.DataFrame(external_refs_data).to_parquet(f"data/relationships/external_refs_part_{part_idx}.parquet")
+    # pd.DataFrame(modifies_refs_data).to_parquet(f"data/relationships/modifies_refs_part_{part_idx}.parquet")
+    # logger.info("Đã lưu toàn bộ các quan hệ cuối cùng vào thư mục data/relationships/")
 
     driver.close()
     logger.info("=== HOÀN TẤT UNIFIED PIPELINE ===")

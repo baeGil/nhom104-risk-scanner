@@ -59,7 +59,7 @@ class Segment:
     # Identity
     doc_id: str
     hierarchy_type: HierarchyType
-    index: int                          # integer position within parent (1-based)
+    index: any                          # position or label (int or str)
 
     # Hierarchy path — human-readable, e.g. "Chương I / Điều 5 / Khoản 2"
     path: str = ""

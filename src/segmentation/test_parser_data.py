@@ -13,12 +13,13 @@ def test_parser_with_real_data():
     import os
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     metadata_path = os.path.join(base_dir, "data", "metadata.parquet")
-    content_path = os.path.join(base_dir, "data", "content.parquet")
+    content_path = os.path.join(base_dir, "data", "content_clean.parquet")
+    if not os.path.exists(content_path):
+        content_path = os.path.join(base_dir, "data", "content.parquet")
     
     metadata_df = pd.read_parquet(metadata_path)
     content_df = pd.read_parquet(content_path)
 
-    
     # Giả sử cột khóa chính là 'id' (hoặc 'doc_id')
     doc_id_col = 'id' if 'id' in metadata_df.columns else 'doc_id'
     content_id_col = 'id' if 'id' in content_df.columns else 'doc_id'
@@ -27,7 +28,8 @@ def test_parser_with_real_data():
     content_df[content_id_col] = content_df[content_id_col].astype(str)
 
     # 2. Lọc sample content
-    html_col = 'content_html'
+    # Thử tìm cột chứa HTML
+    html_col = 'clean_html' if 'clean_html' in content_df.columns else 'content_html'
     
     # Kết hợp metadata và content để dễ filter
     merged_df = pd.merge(
@@ -39,7 +41,7 @@ def test_parser_with_real_data():
     )
 
     # Bạn có thể cung cấp list ID cụ thể ở đây, ví dụ: target_doc_ids = ["26135", "26136"]
-    target_doc_ids = ['178737'] 
+    target_doc_ids = ['178737','179095'] 
     
     if target_doc_ids:
         print(f"Đang lấy sample cho các ID: {target_doc_ids}")

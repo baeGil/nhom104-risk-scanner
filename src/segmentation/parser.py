@@ -52,17 +52,16 @@ RE_MUC = re.compile(
     re.UNICODE | re.IGNORECASE,
 )
 
-# Điều — Article: "Điều 5.", "Điều 10:", "điều 3 ", "Ðiều 1", "Điều thứ 1"
+# Điều — Article: "Điều 5.", "Điều 10:", "điều 3 ", "Ðiều 1", "Điều thứ 1", "Điều 155a"
 RE_DIEU = re.compile(
-    r"^[ĐĐð][iíìĩị]ều\s+(?:thứ\s+)?(\d+)[.\s:]\s*(.*)?$",
+    r"^[ĐĐð][iíìĩị]ều\s+(?:thứ\s+)?(\d+[a-z]*)[.\s:]\s*(.*)?$",
     re.UNICODE | re.IGNORECASE,
 )
 
-# Khoản — Clause: "1. text" — ONLY valid after a Điều is active
-# NOTE: Must NOT match numbered list items like "1. Tên:" in preamble
+# Khoản — Clause: "1. text", "1a. text" — ONLY valid after a Điều is active
 RE_KHOAN = re.compile(
-    r"^(\d+)\.\s+(.+)$",
-    re.UNICODE,
+    r"^(\d+[a-z]*)\.\s+(.+)$",
+    re.UNICODE | re.IGNORECASE,
 )
 
 # Điểm — Point: "a) text", "b) text" (after Khoản)
@@ -106,17 +105,12 @@ _CLOSING_MARKERS = [
 def build_uid(
     doc_id: str,
     hierarchy_type: HierarchyType,
-    dieu_idx: Optional[int] = None,
-    khoan_idx: Optional[int] = None,
+    dieu_idx: Optional[str] = None,
+    khoan_idx: Optional[str] = None,
     diem_letter: Optional[str] = None,
 ) -> str:
     """
     Build stable UID for a segment node.
-
-    Examples:
-      Article  → "doc_42_dieu_5"
-      Clause   → "doc_42_dieu_5_khoan_2"
-      Point    → "doc_42_dieu_5_khoan_2_diem_a"
     """
     base = f"doc_{doc_id}"
     if hierarchy_type == HierarchyType.DIEU:
@@ -125,7 +119,6 @@ def build_uid(
         return f"{base}_dieu_{dieu_idx}_khoan_{khoan_idx}"
     if hierarchy_type == HierarchyType.DIEM:
         return f"{base}_dieu_{dieu_idx}_khoan_{khoan_idx}_diem_{diem_letter}"
-    # Chapter/Mục/Phan — no uid in current schema
     return f"{base}_{hierarchy_type.value.lower()}_{dieu_idx}"
 
 
@@ -214,7 +207,10 @@ class LegalDocumentParser:
         in_quote = False
         for el in leaf_elements:
             raw_html = str(el)
-            text = el.get_text(separator=' ', strip=True)
+            raw_text = el.get_text(separator=' ', strip=True)
+            
+            # Normalize whitespace: replace all whitespace sequences (newlines, tabs) with a single space
+            text = " ".join(raw_text.split())
             
             if not text:
                 continue
@@ -297,23 +293,23 @@ class LegalDocumentParser:
             # 4. Điều
             m_dieu = RE_DIEU.match(text)
             if m_dieu:
-                dieu_idx = int(m_dieu.group(1))
+                dieu_val = m_dieu.group(1) # String to support 155a
                 title_text = m_dieu.group(2) or ""
-                uid = build_uid(doc_id, HierarchyType.DIEU, dieu_idx=dieu_idx)
+                uid = build_uid(doc_id, HierarchyType.DIEU, dieu_idx=dieu_val)
                 
                 parent_uid = None
                 if current_chuong:
                     # Chapter uid is not really used for cross-reference, but we use index as id
                     parent_uid = build_uid(doc_id, HierarchyType.CHUONG, dieu_idx=current_chuong.index)
                     
-                path = f"Điều {dieu_idx}"
+                path = f"Điều {dieu_val}"
                 if current_chuong:
                     path = f"Chương {current_chuong.roman_index} / {path}"
                 
                 current_dieu = Segment(
                     doc_id=doc_id,
                     hierarchy_type=HierarchyType.DIEU,
-                    index=dieu_idx,
+                    index=dieu_val,
                     path=path,
                     text_content=raw_html,
                     clean_text=text,
@@ -333,14 +329,14 @@ class LegalDocumentParser:
             # 5. Khoản
             m_khoan = RE_KHOAN.match(text)
             if m_khoan and current_dieu:
-                khoan_idx = int(m_khoan.group(1))
-                uid = build_uid(doc_id, HierarchyType.KHOAN, dieu_idx=current_dieu.index, khoan_idx=khoan_idx)
+                khoan_val = m_khoan.group(1) # String to support 4a
+                uid = build_uid(doc_id, HierarchyType.KHOAN, dieu_idx=current_dieu.index, khoan_idx=khoan_val)
                 
                 current_khoan = Segment(
                     doc_id=doc_id,
                     hierarchy_type=HierarchyType.KHOAN,
-                    index=khoan_idx,
-                    path=f"{current_dieu.path} / Khoản {khoan_idx}",
+                    index=khoan_val,
+                    path=f"{current_dieu.path} / Khoản {khoan_val}",
                     text_content=raw_html,
                     clean_text=text,
                     parent_uid=current_dieu.uid,
