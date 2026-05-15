@@ -29,3 +29,5 @@ error/
 frontend/frontend_prompt.md
 test_*.md
 *.tar
+
+*.parquet
