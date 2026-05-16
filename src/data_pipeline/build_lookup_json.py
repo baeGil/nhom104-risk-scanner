@@ -31,7 +31,7 @@ from src.data_pipeline.normalize import normalize
 
 def build():
     meta_path = "data/metadata_deduped.parquet"
-    output_path = "data/so_ky_hieu_lookup.json"
+    output_path = "data/output/so_ky_hieu_lookup.json"
     
     if not os.path.exists(meta_path):
         logger.error(f"Không tìm thấy file {meta_path}")

@@ -136,7 +136,7 @@ async def main():
     all_segments = df.to_dict('records')
     
     # --- Checkpoint / Resume Logic ---
-    output_dir = 'scratch' if os.path.exists('scratch') else '../../scratch'
+    output_dir = 'scratch' if os.path.exists('scratch') else '../../data'
     output_path = os.path.join(output_dir, 'extracted_relations_batched.json')
     
     all_results = []

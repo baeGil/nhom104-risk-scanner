@@ -363,7 +363,7 @@ class QARetrievalService:
             return self._doc_lookup
 
         lookup: dict[str, str] = {}
-        for path in [Path(LOOKUP_PATH), Path("data/so_ky_hieu_lookup.json"), Path("output/final_lookup_ui.json")]:
+        for path in [Path(LOOKUP_PATH), Path("data/output/so_ky_hieu_lookup.json"), Path("output/final_lookup_ui.json")]:
             if not path.exists():
                 continue
             try:

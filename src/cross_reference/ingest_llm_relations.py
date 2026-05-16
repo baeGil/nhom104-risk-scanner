@@ -11,9 +11,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s — %(
 logger = logging.getLogger(__name__)
 
 # Path configuration
-LOOKUP_PATH = "output/so_ky_hieu_lookup.json"
+LOOKUP_PATH = "data/output/so_ky_hieu_lookup.json"
 SHORT_TITLE_PATH = "data/short_title_mapping.json"
-RELATIONS_PATH = "scratch/extracted_relations_batched.json"
+RELATIONS_PATH = "data/extracted_relations_batched.json"
 
 def load_lookup_table():
     if os.path.exists(LOOKUP_PATH):

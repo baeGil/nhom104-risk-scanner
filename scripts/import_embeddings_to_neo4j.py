@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def import_embeddings():
     # 1. Cấu hình
-    INPUT_FILE = 'scratch/legal_embeddings_results.parquet' # File tải từ Colab về
+    INPUT_FILE = 'data/legal_embeddings_results.parquet' # File tải từ Colab về
     
     if not os.path.exists(INPUT_FILE):
         logger.error(f"Không tìm thấy file {INPUT_FILE}. Hãy đảm bảo bạn đã tải kết quả từ Colab về thư mục scratch/")
