@@ -17,18 +17,11 @@ export default function LegalQAPage() {
   const [streamingContent, setStreamingContent] = useState("");
   const [streamingIntents, setStreamingIntents] = useState<any[]>([]);
   const [streamingProvisions, setStreamingProvisions] = useState<any[]>([]);
-  const [isHydrated, setIsHydrated] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingContent]);
-
-  const canSend = isHydrated && !isStreaming && Boolean(input.trim());
 
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return;
@@ -165,7 +158,7 @@ export default function LegalQAPage() {
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
           disabled={isStreaming}
         />
-        <WobblyButton onClick={handleSend} disabled={!canSend}>
+        <WobblyButton onClick={handleSend} disabled={isStreaming || !input.trim()}>
           <Send className="w-5 h-5" />
         </WobblyButton>
       </div>
