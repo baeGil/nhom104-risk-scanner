@@ -61,22 +61,39 @@ class ContractReviewPipeline:
         clauses = await self._run_async_stage("extracting", self._clause_extractor.extract(contract))
         result = ContractReviewResult(contract=contract)
 
-        for clause in clauses:
+        # Process all clauses in parallel
+        async def process_clause(clause: ContractClause) -> ClauseReviewResult:
             plan, matches = await self._run_async_stage("retrieving", self._matcher.match_with_plan(clause))
             compliance = await self._run_async_stage("analyzing", self._analyzer.analyze(clause, matches))
             citations = self._citations_from_matches(matches)
             verification_results = await self._run_async_stage("verifying", self._citation_verifier.verify_batch(citations))
 
-            result.clauses.append(
-                ClauseReviewResult(
-                    clause=clause,
-                    retrieval_plan=plan,
-                    matches=matches,
-                    compliance=compliance,
-                    citations=citations,
-                    verification_results=verification_results,
-                )
+            # Verify compliance citations too
+            compliance_citations = self._citations_from_compliance(compliance)
+            if compliance_citations:
+                compliance_verification = await self._citation_verifier.verify_batch(compliance_citations)
+                for violation, verification in zip(compliance.violations, compliance_verification):
+                    violation.verified = verification.verified
+
+            return ClauseReviewResult(
+                clause=clause,
+                retrieval_plan=plan,
+                matches=matches,
+                compliance=compliance,
+                citations=citations,
+                verification_results=verification_results,
             )
+
+        # Run all clauses in parallel with concurrency limit
+        import asyncio
+        semaphore = asyncio.Semaphore(3)  # Limit concurrency to avoid API rate limits
+        
+        async def bounded_process(clause):
+            async with semaphore:
+                return await process_clause(clause)
+
+        clause_results = await asyncio.gather(*(bounded_process(c) for c in clauses))
+        result.clauses.extend(clause_results)
 
         return result
 
@@ -93,6 +110,25 @@ class ContractReviewPipeline:
                     point=str(match.point_label) if match.point_label else None,
                 )
             )
+        return citations
+
+    def _citations_from_compliance(self, compliance: Optional[ComplianceResult]) -> list[LegalCitation]:
+        """Extract citations from compliance analysis results for verification."""
+        if not compliance or not compliance.citations:
+            return []
+        citations: list[LegalCitation] = []
+        for cit in compliance.citations:
+            if isinstance(cit, dict):
+                citations.append(
+                    LegalCitation(
+                        display_text=cit.get("display_text") or cit.get("citation", ""),
+                        uid=cit.get("uid", ""),
+                        document_title=cit.get("document_title") or cit.get("documentTitle", ""),
+                        article=cit.get("article"),
+                        clause=cit.get("clause"),
+                        point=cit.get("point"),
+                    )
+                )
         return citations
 
     def _run_stage(self, stage: str, fn):

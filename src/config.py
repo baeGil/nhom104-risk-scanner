@@ -176,7 +176,7 @@ CONTRACT_OCR_MAX_PAGES: int = _env_int("CONTRACT_OCR_MAX_PAGES", 20)
 # Mock Bridge Layer (for parallel development)
 # =============================================================================
 
-EMBEDDING_SERVICE_MODE: str = _env("EMBEDDING_SERVICE_MODE", "mock")  # "mock" | "real"
+EMBEDDING_SERVICE_MODE: str = _env("EMBEDDING_SERVICE_MODE", "real")  # "mock" | "real"
 GRAPH_REPOSITORY_MODE: str = _env("GRAPH_REPOSITORY_MODE", "mock")  # "mock" | "neo4j"
 EFFECTIVE_TEXT_SERVICE_MODE: str = _env("EFFECTIVE_TEXT_SERVICE_MODE", "mock")  # "mock" | "real"
 

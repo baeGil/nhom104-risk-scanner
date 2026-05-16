@@ -199,7 +199,7 @@ class GraphTraversalStrategy(RetrievalStrategy):
     async def execute(self, query: SubQuery) -> list[RetrievedProvision]:
         cypher = """
         MATCH (seed:Article {uid: $uid})
-        OPTIONAL MATCH (seed)-[:REFERENCES_INTERNAL|REFERENCES_EXTERNAL]->(ref)
+        OPTIONAL MATCH (seed)-[:REFERENCES|MODIFIES]->(ref)
         OPTIONAL MATCH (seed)<-[:MODIFIES]-(mod)
         RETURN ref, mod
         """

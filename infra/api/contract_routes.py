@@ -8,10 +8,12 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
+from neo4j import GraphDatabase
 
 from infra.api.models import JobStatusResponse, ContractClauseResponse, ComplianceResultResponse, LegalMatchResponse, CitationResponse
 from infra.api.job_store import job_store
 from src.contract.review_pipeline import ContractReviewPipeline, ContractReviewPipelineError
+from src.config import NEO4J_URI, neo4j_auth
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -82,6 +84,81 @@ async def get_job_history():
     ]
 
 
+@router.get("/documents/{doc_title}")
+async def get_document_content(doc_title: str):
+    """Get full content of a legal document by title."""
+    driver = GraphDatabase.driver(NEO4J_URI, auth=neo4j_auth())
+    try:
+        with driver.session(default_access_mode="READ", database="neo4j") as session:
+            # Get document metadata and all articles/clauses/points
+            result = session.run("""
+            MATCH (doc:Document)
+            WHERE doc.title = $title
+            OPTIONAL MATCH (doc)-[:HAS_ARTICLE]->(article:Article)
+            OPTIONAL MATCH (article)-[:HAS_CLAUSE]->(clause:Clause)
+            OPTIONAL MATCH (clause)-[:HAS_POINT]->(point:Point)
+            RETURN doc, collect(DISTINCT article) as articles, collect(DISTINCT clause) as clauses, collect(DISTINCT point) as points
+            """, title=doc_title)
+            
+            record = result.single()
+            if not record:
+                raise HTTPException(status_code=404, detail="Document not found")
+            
+            doc = dict(record["doc"])
+            articles = [dict(a) for a in record["articles"] if a]
+            clauses = [dict(c) for c in record["clauses"] if c]
+            points = [dict(p) for p in record["points"] if p]
+            
+            # Build structured content
+            content = {
+                "title": doc.get("title", ""),
+                "so_ky_hieu": doc.get("so_ky_hieu", ""),
+                "loai_van_ban": doc.get("loai_van_ban", ""),
+                "ngay_ban_hanh": doc.get("ngay_ban_hanh", ""),
+                "co_quan_ban_hanh": doc.get("co_quan_ban_hanh", ""),
+                "articles": []
+            }
+            
+            # Group clauses and points by article
+            article_map = {}
+            for article in articles:
+                article_map[article["uid"]] = {
+                    "uid": article["uid"],
+                    "index": article.get("index", 0),
+                    "title": article.get("title", ""),
+                    "text": article.get("clean_text", ""),
+                    "clauses": []
+                }
+            
+            for clause in clauses:
+                article_uid = clause.get("article_uid", "")
+                if article_uid in article_map:
+                    article_map[article_uid]["clauses"].append({
+                        "uid": clause["uid"],
+                        "index": clause.get("index", 0),
+                        "text": clause.get("clean_text", ""),
+                        "points": []
+                    })
+            
+            for point in points:
+                clause_uid = point.get("clause_uid", "")
+                for article_data in article_map.values():
+                    for clause_data in article_data["clauses"]:
+                        if clause_data["uid"] == clause_uid:
+                            clause_data["points"].append({
+                                "uid": point["uid"],
+                                "letter": point.get("letter", ""),
+                                "text": point.get("clean_text", "")
+                            })
+            
+            content["articles"] = list(article_map.values())
+            content["articles"].sort(key=lambda x: x["index"])
+            
+            return content
+    finally:
+        driver.close()
+
+
 async def process_contract(job_id: str, content: bytes, filename: str):
     """
     Process a contract file asynchronously.
@@ -128,15 +205,50 @@ def serialize_review_result(result) -> dict:
     all_violations = []
     all_risks = []
     all_suggestions = []
+    clause_compliance = []
 
     for item in result.clauses:
-        has_high = bool(item.compliance and item.compliance.violations)
-        clauses.append({
+        violations = item.compliance.violations if item.compliance else []
+        severities = [v.severity for v in violations if hasattr(v, 'severity')]
+        if "high" in severities:
+            risk_level = "high"
+        elif "medium" in severities:
+            risk_level = "medium"
+        elif violations:
+            risk_level = "low"
+        else:
+            risk_level = "low"
+
+        clause_data = {
             "id": item.clause.id,
             "type": item.clause.clause_type,
             "text": item.clause.text_content,
-            "riskLevel": "high" if has_high else "low",
-        })
+            "riskLevel": risk_level,
+        }
+
+        # Add per-clause compliance data
+        if item.compliance:
+            clause_data["compliance"] = {
+                "status": item.compliance.compliance_status,
+                "summary": item.compliance.summary,
+                "violations": [
+                    {
+                        "clause": v.clause,
+                        "description": v.description,
+                        "citation": v.citation,
+                        "severity": v.severity,
+                        "verified": v.verified,
+                        "contractClauseId": item.clause.id,
+                        "contractClauseType": item.clause.clause_type,
+                    }
+                    for v in item.compliance.violations
+                ],
+                "risks": item.compliance.risks,
+                "suggestions": item.compliance.suggestions,
+            }
+            clause_compliance.append(clause_data["compliance"])
+
+        clauses.append(clause_data)
 
         for match in item.matches:
             matches.append({
@@ -166,6 +278,8 @@ def serialize_review_result(result) -> dict:
                     "description": violation.description,
                     "citation": violation.citation,
                     "verified": violation.verified,
+                    "contractClauseId": item.clause.id,
+                    "contractClauseType": item.clause.clause_type,
                 })
             all_risks.extend(item.compliance.risks)
             all_suggestions.extend(item.compliance.suggestions)
@@ -179,6 +293,7 @@ def serialize_review_result(result) -> dict:
             "risks": all_risks,
             "suggestions": all_suggestions,
             "citations": citations,
+            "clauseResults": clause_compliance,
         },
     }
 

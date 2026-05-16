@@ -72,7 +72,24 @@ Chỉ trả về JSON, không giải thích.""")
 PromptTemplate.register("clause_extraction", """Trích xuất các điều khoản từ hợp đồng sau.
 
 Với mỗi điều khoản, xác định:
-- clause_type: "thanh_toán" | "bảo_hành" | "phạt" | "chấm_dứt" | "bồi_thường" | "bảo_mật" | "giải_quyết_tranh_chấp" | "force_majeure" | "khác"
+- clause_type: Chọn MỘT trong các loại sau:
+  + "thanh_toán" — lương, giá thuê, phương thức thanh toán, phụ cấp
+  + "phạt_vi_phạm" — phạt tiền, phạt vi phạm hợp đồng
+  + "chấm_dứt" — chấm dứt hợp đồng, đơn phương chấm dứt
+  + "bảo_mật" — bảo mật thông tin, không tiết lộ
+  + "giải_quyết_tranh_chấp" — hòa giải, tòa án, trọng tài
+  + "bồi_thường" — bồi thường thiệt hại
+  + "bảo_hành" — bảo hành, bảo trì
+  + "force_majeure" — bất khả kháng
+  + "thời_hạn" — thời hạn hợp đồng, thời hạn thuê
+  + "chức_danh" — chức danh, vị trí công việc, mô tả công việc
+  + "thời_gio_lam_viec" — thời giờ làm việc, nghỉ phép, nghỉ lễ
+  + "bao_hiểm" — BHXH, BHYT, BHTN, bảo hiểm
+  + "nghia_vu" — nghĩa vụ các bên, quyền và nghĩa vụ
+  + "canh_tranh" — cấm cạnh tranh, không làm việc cho đối thủ
+  + "hieu_luc" — hiệu lực hợp đồng, số bản, nơi ký
+  + "dat_coc" — đặt cọc, ký quỹ, bảo lãnh
+  + "khác" — các loại không thuộc danh sách trên
 - text_content: Nội dung điều khoản
 - parties_involved: ["Bên A", "Bên B"] (nếu có)
 - obligations: Danh sách nghĩa vụ (nếu có)
@@ -123,7 +140,10 @@ Yêu cầu:
 # Compliance Analysis Template (T4.4)
 # ---------------------------------------------------------------------------
 
-PromptTemplate.register("compliance_analysis", """Phân tích tuân thủ pháp luật cho điều khoản hợp đồng sau.
+PromptTemplate.register("compliance_analysis", """Bạn là luật sư phân tích tuân thủ pháp luật cho hợp đồng.
+
+Nhiệm vụ: Phân tích CHI TIẾT điều khoản hợp đồng so với quy định pháp luật được cung cấp.
+BẮT BUỘC trả về kết quả cho MỌI điều khoản — kể cả compliant — với trích dẫn luật để người dùng đọc.
 
 Contract clause:
 {{clause_text}}
@@ -136,16 +156,18 @@ Amendment history:
 
 Trả về duy nhất một JSON object với schema:
 {
+  "compliance_status": "compliant | non_compliant | partially_compliant",
+  "summary": "tóm tắt ngắn gọn phân tích (1-2 câu, tiếng Việt)",
   "violations": [
     {
       "clause": "tên hoặc loại điều khoản",
-      "description": "mô tả vi phạm hoặc điểm chưa phù hợp",
+      "description": "mô tả NGẮN GỌN vi phạm (tối đa 1 câu)",
       "citation": "trích dẫn pháp lý dạng dễ đọc",
       "severity": "low | medium | high"
     }
   ],
-  "risks": ["rủi ro pháp lý"],
-  "suggestions": ["đề xuất sửa đổi"],
+  "risks": ["rủi ro pháp lý tiềm ẩn"],
+  "suggestions": ["đề xuất sửa đổi cụ thể"],
   "citations": [
     {
       "display_text": "Điều/Khoản/Điểm + tên văn bản",
@@ -158,14 +180,42 @@ Trả về duy nhất một JSON object với schema:
   ]
 }
 
-Quy tắc citation:
-- Chỉ dùng uid xuất hiện trong Matched legal provisions.
-- display_text phải là trích dẫn dễ đọc: Điều/Khoản/Điểm + tên văn bản.
-- Nếu validity_signal không phải latest_known, nêu rõ rủi ro văn bản có thể đã bị sửa đổi.
-- Nếu không có vi phạm, trả về "violations": [].
-- Không trả về mảng string cho violations. Mỗi violation phải là một object đúng schema.
+Hướng dẫn phân tích BẮT BUỘC:
 
-Chỉ trả về JSON object, không giải thích, không markdown.
+1. COMPLIANCE_STATUS:
+   - "compliant": Điều khoản tuân thủ đầy đủ pháp luật
+   - "non_compliant": Điều khoản vi phạm pháp luật
+   - "partially_compliant": Điều khoản có vấn đề cần lưu ý
+
+2. SUMMARY (BẮT BUỘC, không được để trống):
+   - Tóm tắt ngắn gọn phân tích bằng tiếng Việt
+   - Ví dụ compliant: "Điều khoản quy định thời giờ làm việc 8 giờ/ngày phù hợp Điều 105 BLLĐ. Tuy nhiên chưa nêu rõ thời gian nghỉ giữa giờ."
+   - Ví dụ non_compliant: "Điều khoản phạt 01 tháng lương vi phạm Điều 127 BLLĐ cấm phạt tiền người lao động."
+
+3. VIOLATIONS:
+   - Chỉ báo cáo khi điều khoản TRỰC TIẾP mâu thuẫn với quy định pháp luật
+   - Ví dụ: "phạt 01 tháng lương" vi phạm Điều 127 BLLĐ (cấm phạt tiền người lao động)
+   - Nếu compliant, trả về []
+
+4. RISKS:
+   - Báo cáo rủi ro pháp lý tiềm ẩn — điều khoản mơ hồ, thiếu chi tiết, có thể gây tranh chấp
+   - Ví dụ: "Điều khoản ghi '8 giờ/ngày' compliant, nhưng không nêu rõ thời gian nghỉ giữa giờ theo Điều 108 BLLĐ"
+   - Nếu không có rủi ro, trả về []
+
+5. SUGGESTIONS:
+   - Đề xuất sửa đổi cụ thể để cải thiện điều khoản
+   - Ví dụ: "Bổ sung quy định về thời gian nghỉ giữa giờ theo Điều 108 BLLĐ"
+   - Nếu không có đề xuất, trả về []
+
+6. CITATIONS (BẮT BUỘC, không được để trống):
+   - TRẢ VỀ TẤT CẢ matched provisions có liên quan để người dùng đọc
+   - Chỉ dùng uid từ Matched legal provisions
+   - display_text phải chính xác theo văn bản pháp luật
+   - Đây là phần QUAN TRỌNG NHẤT — người dùng cần đọc luật để hiểu căn cứ
+
+7. Không trả về markdown, không giải thích thêm.
+
+Chỉ trả về JSON object.
 """)
 
 # ---------------------------------------------------------------------------

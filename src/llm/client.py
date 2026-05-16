@@ -87,7 +87,8 @@ class OpenAIClient(LLMClient):
         """Lazy initialize client."""
         if self._client is None:
             from openai import AsyncOpenAI
-            self._client = AsyncOpenAI(api_key=self._api_key)
+            base_url = os.getenv("OPENAI_BASE_URL", "") or "https://api.openai.com/v1"
+            self._client = AsyncOpenAI(api_key=self._api_key, base_url=base_url)
         return self._client
 
     async def chat(

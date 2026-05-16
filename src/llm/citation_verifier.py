@@ -11,6 +11,7 @@ Usage:
 """
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -102,7 +103,7 @@ class CitationVerifier:
 
     async def verify_batch(self, citations: list[str | LegalCitation]) -> list[VerificationResult]:
         """
-        Verify multiple citations.
+        Verify multiple citations in parallel.
 
         Args:
             citations: List of citation strings
@@ -110,7 +111,8 @@ class CitationVerifier:
         Returns:
             List of VerificationResult for each citation
         """
-        return [await self.verify(c) for c in citations]
+        tasks = [self.verify(c) for c in citations]
+        return await asyncio.gather(*tasks)
 
     def parse_citation(self, citation_text: str) -> ParsedCitation:
         """

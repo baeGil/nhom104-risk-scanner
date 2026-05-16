@@ -151,11 +151,15 @@ class ComplianceResult:
     Full compliance analysis result for a contract.
 
     Attributes:
+        compliance_status: "compliant" | "non_compliant" | "partially_compliant"
+        summary: Brief analysis summary in Vietnamese
         violations: List of legal violations found
         risks: List of legal risks identified
         suggestions: List of suggested text changes
         citations: List of legal citations with verification status
     """
+    compliance_status: str = "compliant"
+    summary: str = ""
     violations: list[ComplianceViolation] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
     suggestions: list[str] = field(default_factory=list)

@@ -84,7 +84,7 @@ class LegalHybridRetriever:
     def __init__(
         self,
         embedding_service: Optional[EmbeddingService] = None,
-        top_k: int = 20,
+        top_k: int = 10,
         return_top_n: int = 5,
     ) -> None:
         self._driver = GraphDatabase.driver(NEO4J_URI, auth=neo4j_auth())
@@ -98,8 +98,10 @@ class LegalHybridRetriever:
     async def retrieve(self, plan: LegalRetrievalPlan) -> list[LegalCandidate]:
         candidates: dict[str, LegalCandidate] = {}
 
-        for query in plan.normalized_queries()[:3]:
-            await self._add_vector_candidates(candidates, query)
+        # Batch vector embeddings for all queries
+        queries = plan.normalized_queries()[:3]
+        if queries:
+            await self._add_vector_candidates_batch(candidates, queries)
 
         for query in [*plan.normalized_queries(), *plan.keywords, *plan.title_hints]:
             self._add_fulltext_candidates(candidates, query)
@@ -110,6 +112,40 @@ class LegalHybridRetriever:
 
         reranked = self._rerank(candidates.values())
         return reranked[: self._return_top_n]
+
+    async def _add_vector_candidates_batch(self, candidates: dict[str, LegalCandidate], queries: list[str]) -> None:
+        """Add vector candidates for multiple queries in batch."""
+        try:
+            embeddings = await self._embedding_service.embed_batch(queries)
+        except Exception:
+            return
+
+        cypher = f"""
+        CALL db.index.vector.queryNodes("{LEGAL_SEGMENT_VECTOR_INDEX}", $top_k, $vector)
+        YIELD node, score
+        RETURN node, labels(node) AS labels, score
+        ORDER BY score DESC
+        """
+        with self._driver.session(default_access_mode="READ", database="neo4j") as session:
+            for query, embedding in zip(queries, embeddings):
+                try:
+                    rows = session.run(
+                        cypher,
+                        {"top_k": self._top_k, "vector": embedding},
+                        config={"maxTransactionRetryTime": NEO4J_TIMEOUT * 1000},
+                    )
+                    hydrated = self._hydrate_nodes([{"node": row["node"], "labels": row["labels"], "score": row["score"]} for row in rows])
+                except Exception:
+                    continue
+
+                for candidate in hydrated:
+                    existing = candidates.get(candidate.uid)
+                    if existing:
+                        existing.score_factors.vector = max(existing.score_factors.vector, candidate.score_factors.vector)
+                        existing.sources.add("vector")
+                    else:
+                        candidate.sources.add("vector")
+                        candidates[candidate.uid] = candidate
 
     async def _add_vector_candidates(self, candidates: dict[str, LegalCandidate], query: str) -> None:
         try:
@@ -156,8 +192,7 @@ class LegalHybridRetriever:
             try:
                 rows = session.run(
                     cypher,
-                    query=safe_query,
-                    top_k=self._top_k,
+                    {"query": safe_query, "top_k": self._top_k},
                     config={"maxTransactionRetryTime": NEO4J_TIMEOUT * 1000},
                 )
                 hydrated = self._hydrate_nodes([{"node": row["node"], "labels": row["labels"], "score": row["score"]} for row in rows], score_kind="lexical")
@@ -251,9 +286,16 @@ class LegalHybridRetriever:
             factors = ScoreFactors(authority=AUTHORITY_WEIGHTS.get(doc.get("loai_van_ban", ""), 1.0))
             score = float(row.get("score") or 0.0)
             if score_kind == "vector":
+                # Neo4j vector index returns cosine similarity (0-1)
                 factors.vector = score
             elif score_kind == "lexical":
-                factors.lexical = min(score / 10.0, 1.0)
+                # Neo4j fulltext returns BM25 score — normalize using sigmoid
+                # BM25 scores typically range 5-15 for legal text
+                # sigmoid(x/5) maps: 0→0.5, 5→0.73, 10→0.88, 15→0.95
+                factors.lexical = 1.0 / (1.0 + 2.71828 ** (-score / 5.0)) - 0.5
+                # Re-scale to 0-1: sigmoid gives 0.5-1.0 for positive scores
+                # Subtract 0.5 and double to get 0-1 range
+                factors.lexical = max(0.0, min(1.0, factors.lexical * 2.0))
             elif score_kind == "graph":
                 factors.graph = 1.25
 
