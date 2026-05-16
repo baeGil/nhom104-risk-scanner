@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
 from neo4j import GraphDatabase
@@ -113,6 +113,33 @@ class CitationVerifier:
         """
         tasks = [self.verify(c) for c in citations]
         return await asyncio.gather(*tasks)
+
+    async def verify_qa_citations(self, citations: list[Any]) -> list[VerificationResult]:
+        """Verify QA citation objects, preferring graph UID when available."""
+        normalized: list[str | LegalCitation] = []
+        for citation in citations:
+            if isinstance(citation, LegalCitation):
+                normalized.append(citation)
+            elif hasattr(citation, "to_legal_citation"):
+                normalized.append(citation.to_legal_citation())
+            elif isinstance(citation, dict):
+                normalized.append(
+                    LegalCitation(
+                        display_text=str(citation.get("display_text") or citation.get("text") or ""),
+                        uid=str(citation.get("uid") or ""),
+                        document_title=str(citation.get("document_title") or citation.get("document") or ""),
+                        article=_optional_str(citation.get("article")),
+                        clause=_optional_str(citation.get("clause")),
+                        point=_optional_str(citation.get("point")),
+                    )
+                )
+            else:
+                normalized.append(str(citation or ""))
+        return await self.verify_batch(normalized)
+
+    @staticmethod
+    def result_to_dict(result: VerificationResult) -> dict[str, Any]:
+        return asdict(result)
 
     def parse_citation(self, citation_text: str) -> ParsedCitation:
         """
@@ -289,3 +316,10 @@ class CitationVerifier:
                 verified=False,
                 reason=f"Neo4j query failed: {str(e)}",
             )
+
+
+def _optional_str(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None

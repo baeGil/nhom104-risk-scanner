@@ -109,6 +109,14 @@ class OpenAIClient(LLMClient):
         last_error = None
         for attempt in range(MAX_RETRIES):
             try:
+                logger.info(
+                    "LLM request start model=%s prompt_chars=%d schema=%s temperature=%.2f attempt=%d",
+                    self._model,
+                    len(prompt),
+                    bool(schema),
+                    temperature,
+                    attempt + 1,
+                )
                 response = await client.chat.completions.create(**kwargs)
                 content = response.choices[0].message.content.strip()
 
@@ -118,7 +126,14 @@ class OpenAIClient(LLMClient):
                     lines = [l for l in lines if not l.startswith("```")]
                     content = "\n".join(lines)
 
-                return json.loads(content)
+                parsed = json.loads(content)
+                logger.info(
+                    "LLM request success model=%s response_chars=%d keys=%s",
+                    self._model,
+                    len(content),
+                    sorted(parsed.keys()) if isinstance(parsed, dict) else type(parsed).__name__,
+                )
+                return parsed
 
             except Exception as e:
                 last_error = e

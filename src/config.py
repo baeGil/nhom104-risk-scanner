@@ -107,6 +107,10 @@ INTENT_CLARIFICATION_THRESHOLD: float = _env_float("INTENT_CLARIFICATION_THRESHO
 
 EMBED_SERVICE_URL: str = _env("EMBED_SERVICE_URL", "http://localhost:8001")
 EMBED_MODEL: str = _env("EMBED_MODEL", "mainguyen9/vietlegal-harrier-0.6b")
+EMBED_QUERY_INSTRUCTION: str = _env(
+    "EMBED_QUERY_INSTRUCTION",
+    "Given a Vietnamese legal question, retrieve relevant legal passages that answer the question",
+)
 EMBED_BATCH_SIZE: int = _env_int("EMBED_BATCH_SIZE", 512)
 EMBED_MAX_TEXTS: int = _env_int("EMBED_MAX_TEXTS", 1000)
 EMBED_DIMENSIONS: int = _env_int("EMBED_DIMENSIONS", 1024)

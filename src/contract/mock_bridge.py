@@ -29,6 +29,8 @@ from src.config import (
     GRAPH_REPOSITORY_MODE,
     EFFECTIVE_TEXT_SERVICE_MODE,
     EMBED_DIMENSIONS,
+    EMBED_QUERY_INSTRUCTION,
+    EMBED_SERVICE_URL,
 )
 
 
@@ -117,6 +119,122 @@ class MockEmbeddingService(EmbeddingService):
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts."""
         return [self._generate_vector(t) for t in texts]
+
+
+class RealEmbeddingService(EmbeddingService):
+    """HTTP adapter for the embedding service used by contract retrieval."""
+
+    def __init__(
+        self,
+        url: str = EMBED_SERVICE_URL,
+        dimensions: int = EMBED_DIMENSIONS,
+        query_instruction: str = EMBED_QUERY_INSTRUCTION,
+    ):
+        self._url = url.rstrip("/")
+        self._dimensions = dimensions
+        self._query_instruction = query_instruction
+
+    async def embed(self, text: str) -> list[float]:
+        return (await self.embed_batch([self._format_query(text)]))[0]
+
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        import asyncio
+        import requests
+
+        def _request() -> list[list[float]]:
+            response = requests.post(
+                f"{self._url}/embed",
+                json={"texts": texts},
+                timeout=60,
+            )
+            response.raise_for_status()
+            embeddings = response.json().get("embeddings", [])
+            if len(embeddings) != len(texts):
+                raise RuntimeError(f"Expected {len(texts)} embeddings, got {len(embeddings)}")
+            if embeddings and len(embeddings[0]) != self._dimensions:
+                raise RuntimeError(f"Expected {self._dimensions} dims, got {len(embeddings[0])}")
+            return embeddings
+
+        return await asyncio.to_thread(_request)
+
+    def _format_query(self, text: str) -> str:
+        if text.lstrip().startswith("Instruct:"):
+            return text
+        return f"Instruct: {self._query_instruction}\nQuery: {text}"
+
+
+class LocalEmbeddingService(EmbeddingService):
+    """
+    Local SentenceTransformer embedding service.
+
+    Query embeddings use Harrier's instruction format:
+    Instruct: ...
+    Query: ...
+    """
+
+    _model: Any = None
+
+    def __init__(
+        self,
+        model_name: str | None = None,
+        dimensions: int = EMBED_DIMENSIONS,
+        batch_size: int = 32,
+        query_instruction: str = EMBED_QUERY_INSTRUCTION,
+    ) -> None:
+        from src.config import EMBED_MODEL
+
+        self._model_name = model_name or EMBED_MODEL
+        self._dimensions = dimensions
+        self._batch_size = batch_size
+        self._query_instruction = query_instruction
+
+    async def embed(self, text: str) -> list[float]:
+        return (await self.embed_batch([self._format_query(text)]))[0]
+
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        import asyncio
+
+        return await asyncio.to_thread(self._embed_batch_sync, texts)
+
+    def _ensure_model_loaded(self) -> None:
+        if self.__class__._model is not None:
+            return
+
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError as exc:
+            raise RuntimeError(
+                "Local embedding mode requires sentence-transformers. "
+                "Install project dependencies or use EMBEDDING_SERVICE_MODE=real."
+            ) from exc
+
+        self.__class__._model = SentenceTransformer(self._model_name)
+
+    def _embed_batch_sync(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+
+        self._ensure_model_loaded()
+
+        model = self.__class__._model
+        encoded = model.encode(
+            texts,
+            batch_size=self._batch_size,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        )
+        embeddings = encoded.tolist()
+
+        for embedding in embeddings:
+            if len(embedding) != self._dimensions:
+                raise RuntimeError(f"Expected {self._dimensions} dims, got {len(embedding)}")
+
+        return embeddings
+
+    def _format_query(self, text: str) -> str:
+        if text.lstrip().startswith("Instruct:"):
+            return text
+        return f"Instruct: {self._query_instruction}\nQuery: {text}"
 
 
 # ── Graph Traversal ─────────────────────────────────────────────────────────

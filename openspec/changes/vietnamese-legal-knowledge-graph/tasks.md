@@ -73,11 +73,11 @@
 
 - [x] T5.1: **Implement question intent analysis** — LLM classification: article_reference_query, topic_query, validity_query, comparison_query. Extract: document_type, article_number, time_reference. — *Spec: contract-review-pipeline*
 
-- [ ] T5.2: **Implement retrieval pipeline** — Article reference → direct Neo4j lookup. Topic query → vector search + graph traversal (MODIFIES, REFERENCES, DETAILS). Always get EffectiveArticle for current text. — *Depends on: T3.3, T1.6* — *Spec: contract-review-pipeline*
+- [x] T5.2: **Implement retrieval pipeline** — *Completed via `implement-legal-qa-phase-5`: QA retrieval adapter with direct lookup, Phase 4 LegalHybridRetriever wrapping, LegalSegment normalization, and best-effort validity fallback when EffectiveArticle/relationship data is incomplete.* — Article reference → direct Neo4j lookup. Topic query → vector search + graph traversal (MODIFIES, REFERENCES, DETAILS). Always get EffectiveArticle for current text. — *Depends on: T3.3, T1.6* — *Spec: contract-review-pipeline*
 
-- [ ] T5.3: **Implement answer generation** — LLM prompt: question + retrieved provisions + effective text + amendment history. Output: answer with precise citations (Điều X khoản Y Luật Z). — *Depends on: T5.2* — *Spec: contract-review-pipeline*
+- [x] T5.3: **Implement answer generation** — *Completed via `implement-legal-qa-phase-5`: strict JSON answer generator with retry on malformed output, no-result responses, retrieved provision metadata, and citation UID validation.* — LLM prompt: question + retrieved provisions + effective text + amendment history. Output: answer with precise citations (Điều X khoản Y Luật Z). — *Depends on: T5.2* — *Spec: contract-review-pipeline*
 
-- [ ] T5.4: **Implement QA citation verification** — Same as T4.5, applied to QA answers. — *Depends on: T5.3* — *Spec: contract-review-pipeline*
+- [x] T5.4: **Implement QA citation verification** — *Completed via `implement-legal-qa-phase-5`: QA citations are normalized to LegalCitation, verified UID-first, and attached back to the QA JSON response with aggregate status.* — Same as T4.5, applied to QA answers. — *Depends on: T5.3* — *Spec: contract-review-pipeline*
 
 ## Infrastructure
 
