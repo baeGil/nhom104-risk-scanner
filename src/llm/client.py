@@ -24,7 +24,6 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1.0  # seconds
 RETRY_BACKOFF = 2.0  # exponential backoff multiplier
-DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 RETRYABLE_ERRORS = (
     "rate_limit",
     "timeout",
@@ -66,29 +65,20 @@ class LLMClient(ABC):
 
 class OpenAIClient(LLMClient):
     """
-    OpenAI-compatible provider.
+    OpenAI provider.
 
     Configuration via environment variables:
         OPENAI_API_KEY: API key (required)
         OPENAI_MODEL: Model name (default: gpt-5.4-mini)
-        OPENAI_BASE_URL: Custom base URL for compatible APIs (optional)
     """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
-        base_url: Optional[str] = None,
     ) -> None:
         self._api_key = api_key or os.getenv("OPENAI_API_KEY", "")
         self._model = model or os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
-        raw_base_url = base_url if base_url is not None else os.getenv("OPENAI_BASE_URL", "")
-        self._base_url = raw_base_url.strip() or None
-        if self._base_url and not self._base_url.startswith(("http://", "https://")):
-            raise ValueError(
-                "OPENAI_BASE_URL must start with http:// or https://. "
-                "Leave it empty to use the default OpenAI endpoint."
-            )
         if not self._api_key:
             raise ValueError("OPENAI_API_KEY is required. Set it in .env or environment.")
         self._client = None
@@ -97,11 +87,7 @@ class OpenAIClient(LLMClient):
         """Lazy initialize client."""
         if self._client is None:
             from openai import AsyncOpenAI
-            kwargs = {
-                "api_key": self._api_key,
-                "base_url": self._base_url or DEFAULT_OPENAI_BASE_URL,
-            }
-            self._client = AsyncOpenAI(**kwargs)
+            self._client = AsyncOpenAI(api_key=self._api_key)
         return self._client
 
     async def chat(
@@ -187,7 +173,6 @@ def create_client(
         return OpenAIClient(
             api_key=kwargs.get("api_key"),
             model=kwargs.get("model"),
-            base_url=kwargs.get("base_url"),
         )
     else:
         raise ValueError(f"Unknown LLM provider: {provider}. Supported: openai")

@@ -134,18 +134,38 @@ Matched legal provisions:
 Amendment history:
 {{amendment_history}}
 
-Với mỗi điều khoản, trả về:
-- violations: Vi phạm pháp luật cụ thể
-- risks: Rủi ro pháp lý
-- suggestions: Đề xuất sửa đổi
-- citations: mảng citation object, mỗi object gồm display_text, uid, document_title, article, clause, point
+Trả về duy nhất một JSON object với schema:
+{
+  "violations": [
+    {
+      "clause": "tên hoặc loại điều khoản",
+      "description": "mô tả vi phạm hoặc điểm chưa phù hợp",
+      "citation": "trích dẫn pháp lý dạng dễ đọc",
+      "severity": "low | medium | high"
+    }
+  ],
+  "risks": ["rủi ro pháp lý"],
+  "suggestions": ["đề xuất sửa đổi"],
+  "citations": [
+    {
+      "display_text": "Điều/Khoản/Điểm + tên văn bản",
+      "uid": "uid của matched provision",
+      "document_title": "tên văn bản",
+      "article": "số điều hoặc null",
+      "clause": "số khoản hoặc null",
+      "point": "ký hiệu điểm hoặc null"
+    }
+  ]
+}
 
 Quy tắc citation:
 - Chỉ dùng uid xuất hiện trong Matched legal provisions.
 - display_text phải là trích dẫn dễ đọc: Điều/Khoản/Điểm + tên văn bản.
 - Nếu validity_signal không phải latest_known, nêu rõ rủi ro văn bản có thể đã bị sửa đổi.
+- Nếu không có vi phạm, trả về "violations": [].
+- Không trả về mảng string cho violations. Mỗi violation phải là một object đúng schema.
 
-Trả về JSON.
+Chỉ trả về JSON object, không giải thích, không markdown.
 """)
 
 # ---------------------------------------------------------------------------

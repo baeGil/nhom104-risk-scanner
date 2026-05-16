@@ -121,17 +121,11 @@ class ComplianceAnalyzer:
 
     def _parse_llm_output(self, raw: Any) -> ComplianceResult:
         """Parse LLM output into ComplianceResult."""
-        # Handle string response
-        if isinstance(raw, str):
-            if "```" in raw:
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:]
-            raw = json.loads(raw.strip())
+        raw = self._coerce_json_object(raw)
 
         # Parse violations
         violations = []
-        for v in raw.get("violations", []):
+        for v in self._coerce_violation_list(raw.get("violations")):
             violations.append(ComplianceViolation(
                 clause=v.get("clause", ""),
                 description=v.get("description", ""),
@@ -141,7 +135,84 @@ class ComplianceAnalyzer:
 
         return ComplianceResult(
             violations=violations,
-            risks=raw.get("risks", []),
-            suggestions=raw.get("suggestions", []),
-            citations=raw.get("citations", []),
+            risks=self._coerce_str_list(raw.get("risks"), field_name="risks"),
+            suggestions=self._coerce_str_list(raw.get("suggestions"), field_name="suggestions"),
+            citations=self._coerce_dict_list(raw.get("citations"), field_name="citations"),
         )
+
+    def _coerce_json_object(self, raw: Any) -> dict[str, Any]:
+        """Normalize LLM output to a JSON object."""
+        if isinstance(raw, dict):
+            return raw
+
+        if isinstance(raw, str):
+            raw = raw.strip()
+            if raw.startswith("```"):
+                segments = raw.split("```")
+                if len(segments) >= 3:
+                    raw = segments[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+                raw = raw.strip()
+
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Compliance analyzer expected JSON object from LLM, got non-JSON text: {raw[:200]}") from exc
+
+            if isinstance(parsed, dict):
+                return parsed
+            raise ValueError(f"Compliance analyzer expected JSON object from LLM, got {type(parsed).__name__}")
+
+        raise ValueError(f"Compliance analyzer expected dict or JSON string from LLM, got {type(raw).__name__}")
+
+    def _coerce_str_list(self, value: Any, field_name: str) -> list[str]:
+        """Normalize optional list[str] fields from LLM output."""
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValueError(f"Compliance analyzer expected '{field_name}' to be a list, got {type(value).__name__}")
+        return [str(item) for item in value]
+
+    def _coerce_dict_list(self, value: Any, field_name: str) -> list[dict[str, Any]]:
+        """Normalize optional list[dict] fields from LLM output."""
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValueError(f"Compliance analyzer expected '{field_name}' to be a list, got {type(value).__name__}")
+
+        normalized: list[dict[str, Any]] = []
+        for item in value:
+            if not isinstance(item, dict):
+                raise ValueError(
+                    f"Compliance analyzer expected items in '{field_name}' to be objects, got {type(item).__name__}"
+                )
+            normalized.append(item)
+        return normalized
+
+    def _coerce_violation_list(self, value: Any) -> list[dict[str, Any]]:
+        """Normalize violations from either object or string format."""
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValueError(f"Compliance analyzer expected 'violations' to be a list, got {type(value).__name__}")
+
+        normalized: list[dict[str, Any]] = []
+        for item in value:
+            if isinstance(item, dict):
+                normalized.append(item)
+                continue
+            if isinstance(item, str):
+                normalized.append(
+                    {
+                        "clause": "",
+                        "description": item,
+                        "citation": "",
+                        "severity": "medium",
+                    }
+                )
+                continue
+            raise ValueError(
+                f"Compliance analyzer expected items in 'violations' to be objects or strings, got {type(item).__name__}"
+            )
+        return normalized
