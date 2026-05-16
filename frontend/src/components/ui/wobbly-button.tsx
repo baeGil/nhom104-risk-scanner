@@ -28,6 +28,7 @@ export function WobblyButton({
 
   return (
     <button
+      suppressHydrationWarning
       className={cn(
         "font-body border-[3px] border-fg font-bold transition-all duration-100 cursor-pointer",
         "shadow-[4px_4px_0px_0px_#2d2d2d]",
