@@ -11,8 +11,12 @@ Usage:
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 from src.llm.client import LLMClient, create_client
 from src.llm.prompts import PromptTemplate
@@ -70,7 +74,7 @@ class ComplianceAnalyzer:
         all_provisions: dict[str, list[MatchedProvision]],
     ) -> dict[str, ComplianceResult]:
         """
-        Analyze compliance for multiple clauses.
+        Analyze compliance for multiple clauses in parallel.
 
         Args:
             clauses: List of ContractClause objects
@@ -79,10 +83,21 @@ class ComplianceAnalyzer:
         Returns:
             Dict mapping clause_id to ComplianceResult
         """
-        results = {}
-        for clause in clauses:
+        async def analyze_one(clause: ContractClause) -> tuple[str, ComplianceResult]:
             provisions = all_provisions.get(clause.id, [])
-            results[clause.id] = await self.analyze(clause, provisions)
+            result = await self.analyze(clause, provisions)
+            return (clause.id, result)
+
+        tasks = [analyze_one(clause) for clause in clauses]
+        results_list = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        results = {}
+        for item in results_list:
+            if isinstance(item, Exception):
+                logger.warning(f"Compliance analysis failed for clause: {item}")
+            else:
+                clause_id, result = item
+                results[clause_id] = result
         return results
 
     def _build_prompt(
@@ -134,6 +149,8 @@ class ComplianceAnalyzer:
             ))
 
         return ComplianceResult(
+            compliance_status=raw.get("compliance_status", "compliant"),
+            summary=raw.get("summary", ""),
             violations=violations,
             risks=self._coerce_str_list(raw.get("risks"), field_name="risks"),
             suggestions=self._coerce_str_list(raw.get("suggestions"), field_name="suggestions"),

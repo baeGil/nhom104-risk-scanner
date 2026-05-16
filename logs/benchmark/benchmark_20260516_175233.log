@@ -1,0 +1,119 @@
+2026-05-16 17:52:33,061 [INFO] benchmark: Neo4j Database Statistics:
+2026-05-16 17:52:33,119 [WARNING] neo4j.notifications: Received notification from DBMS server: <GqlStatusObject gql_status='01N42', status_description="One of the relationship types in your query is not available in the database, make sure you didn't misspell it or that the label is available when you run this statement in your application (the missing relationship type is: REFERENCES_INTERNAL)", position=<SummaryInputPosition line=1, column=13, offset=12>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/', '_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'column': 13, 'offset': 12, 'line': 1}}> for query: 'MATCH ()-[r:REFERENCES_INTERNAL]->() RETURN count(r) as cnt'
+2026-05-16 17:52:33,120 [WARNING] neo4j.notifications: Received notification from DBMS server: <GqlStatusObject gql_status='01N42', status_description="One of the relationship types in your query is not available in the database, make sure you didn't misspell it or that the label is available when you run this statement in your application (the missing relationship type is: REFERENCES_EXTERNAL)", position=<SummaryInputPosition line=1, column=13, offset=12>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/', '_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'column': 13, 'offset': 12, 'line': 1}}> for query: 'MATCH ()-[r:REFERENCES_EXTERNAL]->() RETURN count(r) as cnt'
+2026-05-16 17:52:33,130 [INFO] benchmark:   document_count: 31
+2026-05-16 17:52:33,130 [INFO] benchmark:   article_count: 1321
+2026-05-16 17:52:33,131 [INFO] benchmark:   clause_count: 4610
+2026-05-16 17:52:33,131 [INFO] benchmark:   point_count: 3701
+2026-05-16 17:52:33,131 [INFO] benchmark:   legalsegment_count: 7422
+2026-05-16 17:52:33,131 [INFO] benchmark:   has_article_count: 1321
+2026-05-16 17:52:33,131 [INFO] benchmark:   has_clause_count: 4610
+2026-05-16 17:52:33,131 [INFO] benchmark:   has_point_count: 3701
+2026-05-16 17:52:33,131 [INFO] benchmark:   references_internal_count: 0
+2026-05-16 17:52:33,131 [INFO] benchmark:   references_external_count: 0
+2026-05-16 17:52:33,131 [INFO] benchmark:   modifies_count: 47
+2026-05-16 17:52:33,131 [INFO] benchmark:   embedded_segments: 7422
+2026-05-16 17:52:33,131 [INFO] benchmark:   index document_title_fulltext: FULLTEXT (ONLINE)
+2026-05-16 17:52:33,131 [INFO] benchmark:   index legal_segment_embeddings: VECTOR (ONLINE)
+2026-05-16 17:52:33,131 [INFO] benchmark:   index legal_segment_fulltext: FULLTEXT (ONLINE)
+2026-05-16 17:52:33,131 [INFO] benchmark: ============================================================
+2026-05-16 17:52:33,131 [INFO] benchmark: BENCHMARK: sample_hop_dong_lao_dong.md
+2026-05-16 17:52:33,131 [INFO] benchmark: ============================================================
+2026-05-16 17:52:33,152 [INFO] benchmark: Phase 0: Parsing
+2026-05-16 17:52:33,153 [INFO] benchmark:   ✓ Parsed: 2293 chars, 7 PII redacted (1ms)
+2026-05-16 17:52:33,153 [INFO] benchmark: Phase 1: Clause Extraction
+2026-05-16 17:52:40,067 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:52:45,597 [INFO] benchmark:   ✓ Extracted 12 clauses: {'chức_danh': 1, 'thời_hạn': 1, 'thanh_toán': 1, 'thời_gio_lam_viec': 1, 'bao_hiểm': 1, 'nghia_vu': 1, 'chấm_dứt': 1, 'phạt_vi_phạm': 1, 'bảo_mật': 1, 'canh_tranh': 1, 'giải_quyết_tranh_chấp': 1, 'hieu_luc': 1} (12443ms)
+2026-05-16 17:52:45,597 [INFO] benchmark: Phase 2: Hybrid Retrieval
+2026-05-16 17:52:47,759 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:52:52,760 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:52:59,235 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:53:06,667 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:53:11,868 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:53:18,918 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:53:24,006 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:53:28,982 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:53:34,190 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:53:38,940 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:53:43,399 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:53:48,158 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:53:50,216 [INFO] benchmark:   ✓ Retrieved 60 matches: {'vector_only': 2, 'lexical_only': 15, 'hybrid': 43, 'graph_expanded': 0} (64619ms)
+2026-05-16 17:53:50,216 [INFO] benchmark:     Scores: min=1.5672 max=3.1182 avg=2.3320
+2026-05-16 17:53:50,216 [INFO] benchmark: Phase 3: Compliance Analysis
+2026-05-16 17:53:55,548 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:03,928 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:04,084 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:05,360 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:05,361 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:06,333 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:10,132 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:10,133 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:12,189 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:12,190 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:12,478 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:13,903 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:13,974 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:14,022 [INFO] benchmark:   ✓ Analyzed 12 clauses, 1 violations (23805ms)
+2026-05-16 17:54:14,022 [INFO] benchmark:   ✓ Verified 60/60 citations
+2026-05-16 17:54:14,022 [ERROR] asyncio: Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x318af3d10>
+2026-05-16 17:54:14,022 [ERROR] asyncio: Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x31a36d010>
+2026-05-16 17:54:14,022 [ERROR] asyncio: Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x31a250b40>, 404158.889831416), (<aiohttp.client_proto.ResponseHandler object at 0x31a26bd20>, 404159.856048333)])']
+connector: <aiohttp.connector.TCPConnector object at 0x31a36f310>
+2026-05-16 17:54:14,022 [ERROR] asyncio: Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x16fb194d0>
+2026-05-16 17:54:14,024 [INFO] benchmark: ============================================================
+2026-05-16 17:54:14,024 [INFO] benchmark: BENCHMARK: sample_hop_dong_thue.md
+2026-05-16 17:54:14,024 [INFO] benchmark: ============================================================
+2026-05-16 17:54:14,024 [INFO] benchmark: Phase 0: Parsing
+2026-05-16 17:54:14,025 [INFO] benchmark:   ✓ Parsed: 2459 chars, 9 PII redacted (1ms)
+2026-05-16 17:54:14,025 [INFO] benchmark: Phase 1: Clause Extraction
+2026-05-16 17:54:20,018 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:23,384 [INFO] benchmark:   ✓ Extracted 10 clauses: {'thời_hạn': 1, 'thanh_toán': 1, 'dat_coc': 1, 'phạt_vi_phạm': 1, 'bảo_hành': 1, 'chấm_dứt': 1, 'giải_quyết_tranh_chấp': 1, 'bảo_mật': 1, 'force_majeure': 1, 'hieu_luc': 1} (9359ms)
+2026-05-16 17:54:23,385 [INFO] benchmark: Phase 2: Hybrid Retrieval
+2026-05-16 17:54:25,517 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:30,361 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:35,245 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:40,614 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:46,665 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:52,465 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:54:57,162 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:02,004 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:07,193 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:11,735 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:13,911 [INFO] benchmark:   ✓ Retrieved 50 matches: {'vector_only': 2, 'lexical_only': 14, 'hybrid': 34, 'graph_expanded': 4} (50526ms)
+2026-05-16 17:55:13,911 [INFO] benchmark:     Scores: min=0.8671 max=2.8265 avg=1.6275
+2026-05-16 17:55:13,911 [INFO] benchmark: Phase 3: Compliance Analysis
+2026-05-16 17:55:20,517 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:28,370 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:29,962 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:30,103 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:30,323 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:31,427 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:32,490 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:35,346 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:35,348 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:36,754 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:36,977 [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-16 17:55:37,055 [INFO] benchmark:   ✓ Analyzed 10 clauses, 1 violations (23144ms)
+2026-05-16 17:55:37,055 [INFO] benchmark:   ✓ Verified 50/50 citations
+2026-05-16 17:55:37,056 [ERROR] asyncio: Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x31aa8a0d0>
+2026-05-16 17:55:37,056 [ERROR] asyncio: Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x31a47e430>, 404230.694146333)])']
+connector: <aiohttp.connector.TCPConnector object at 0x31aa8b050>
+2026-05-16 17:55:37,056 [ERROR] asyncio: Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x320dc26d0>
+2026-05-16 17:55:37,056 [ERROR] asyncio: Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x3205eb1c0>, 404241.335320541), (<aiohttp.client_proto.ResponseHandler object at 0x31a253cb0>, 404242.707520833)])']
+connector: <aiohttp.connector.TCPConnector object at 0x320dc29d0>
+2026-05-16 17:55:37,057 [ERROR] asyncio: Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x31c17c090>
+2026-05-16 17:55:37,058 [INFO] benchmark: ============================================================
+2026-05-16 17:55:37,058 [INFO] benchmark: BENCHMARK: sample_hop_dong_mua_ban.md
+2026-05-16 17:55:37,058 [INFO] benchmark: ============================================================
+2026-05-16 17:55:37,058 [INFO] benchmark: Phase 0: Parsing
+2026-05-16 17:55:37,061 [INFO] benchmark:   ✓ Parsed: 2852 chars, 9 PII redacted (2ms)
+2026-05-16 17:55:37,061 [INFO] benchmark: Phase 1: Clause Extraction
