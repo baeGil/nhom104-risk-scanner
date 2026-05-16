@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { WobblyButton } from "@/components/ui/wobbly-button";
 import { WobblyCard } from "@/components/ui/wobbly-card";
 import { WobblyBadge } from "@/components/ui/wobbly-badge";
-import { Upload, FileText, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, Eye, ArrowLeft, FileText as FileTextIcon, Type, Loader2 } from "lucide-react";
+import { Upload, FileText, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, Eye, ArrowLeft, FileText as FileTextIcon, Type, Loader2, BookOpen, X, Clock, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { fileToPdfBlob } from "@/lib/file-to-pdf";
 
 const PDFViewer = dynamic(() => import("@/components/contract/pdf-viewer").then(m => m.PDFViewer), { ssr: false });
 
-type ViewMode = "upload" | "preview" | "analyzing" | "results";
+type ViewMode = "upload" | "preview" | "analyzing" | "results" | "history";
 type InputType = "file" | "text";
 
 interface Clause {
@@ -23,9 +23,39 @@ interface Clause {
 }
 
 interface ComplianceResult {
-  violations: { clause: string; description: string; citation: string; verified: boolean }[];
+  violations: { clause: string; description: string; citation: string; verified: boolean; contractClauseId?: string; contractClauseType?: string }[];
   risks: string[];
   suggestions: string[];
+}
+
+interface LegalDocument {
+  title: string;
+  so_ky_hieu: string;
+  loai_van_ban: string;
+  ngay_ban_hanh: string;
+  co_quan_ban_hanh: string;
+  articles: LegalArticle[];
+}
+
+interface LegalArticle {
+  uid: string;
+  index: number;
+  title: string;
+  text: string;
+  clauses: LegalClause[];
+}
+
+interface LegalClause {
+  uid: string;
+  index: number;
+  text: string;
+  points: LegalPoint[];
+}
+
+interface LegalPoint {
+  uid: string;
+  letter: string;
+  text: string;
 }
 
 import { contractApi } from "@/lib/api-contract";
@@ -55,6 +85,13 @@ export default function ContractReviewPage() {
   const [citations, setCitations] = useState<CitationResult[]>([]);
   const [sourceName, setSourceName] = useState("");
   const [converting, setConverting] = useState(false);
+  const [highlightedClauseId, setHighlightedClauseId] = useState<string | null>(null);
+  const [expandedRisks, setExpandedRisks] = useState(false);
+  const [expandedSuggestions, setExpandedSuggestions] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<LegalDocument | null>(null);
+  const [documentLoading, setDocumentLoading] = useState(false);
+  const [jobHistory, setJobHistory] = useState<any[]>([]);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,6 +100,63 @@ export default function ContractReviewPage() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    loadJobHistory();
+    const savedJobId = localStorage.getItem("lastJobId");
+    if (savedJobId) {
+      loadJobResult(savedJobId);
+    }
+  }, []);
+
+  const loadJobHistory = async () => {
+    try {
+      const history = await contractApi.getJobHistory();
+      setJobHistory(history || []);
+    } catch (err) {
+      console.error("Failed to load history:", err);
+    }
+  };
+
+  const loadJobResult = async (jobId: string) => {
+    try {
+      const status = await contractApi.getJobStatus(jobId);
+      if (status.status === "completed") {
+        const apiClauses = status.clauses || [];
+        const apiCompliance = status.compliance;
+        setLegalMatches(status.matches || []);
+        setCitations(status.citations || apiCompliance?.citations || []);
+        setClauses(
+          apiClauses.map((c: any) => ({
+            id: c.id,
+            type: c.type,
+            text: c.text,
+            riskLevel: c.riskLevel as "low" | "medium" | "high",
+          }))
+        );
+        if (apiCompliance) {
+          setCompliance({
+            violations: apiCompliance.violations.map((v: any) => ({
+              clause: v.clause,
+              description: v.description,
+              citation: v.citation,
+              verified: v.verified,
+              contractClauseId: v.contractClauseId,
+              contractClauseType: v.contractClauseType,
+            })),
+            risks: apiCompliance.risks,
+            suggestions: apiCompliance.suggestions,
+          });
+        }
+        setSourceName(status.filename || "");
+        setCurrentJobId(jobId);
+        localStorage.setItem("lastJobId", jobId);
+        setViewMode("results");
+      }
+    } catch (err) {
+      console.error("Failed to load job result:", err);
+    }
+  };
 
   const resetToUpload = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -76,6 +170,12 @@ export default function ContractReviewPage() {
     setSourceName("");
     setProgress(0);
     setViewMode("upload");
+    setHighlightedClauseId(null);
+    setExpandedRisks(false);
+    setExpandedSuggestions(false);
+    setSelectedDocument(null);
+    setCurrentJobId(null);
+    localStorage.removeItem("lastJobId");
   };
 
   const handleFile = async (file: File) => {
@@ -135,18 +235,15 @@ export default function ContractReviewPage() {
       let jobId: string;
 
       if (selectedFile) {
-        // Upload file to backend
         const uploadResp = await contractApi.uploadContract(selectedFile);
         jobId = uploadResp.jobId;
       } else {
-        // For text input, create a blob and upload
         const blob = new Blob([textContent], { type: "text/markdown" });
         const file = new File([blob], "contract.md", { type: "text/markdown" });
         const uploadResp = await contractApi.uploadContract(file);
         jobId = uploadResp.jobId;
       }
 
-      // Poll job status
       const pollInterval = setInterval(async () => {
         try {
           const status = await contractApi.getJobStatus(jobId);
@@ -154,14 +251,13 @@ export default function ContractReviewPage() {
 
           if (status.status === "completed") {
             clearInterval(pollInterval);
-            // Map API response to local types
             const apiClauses = status.clauses || [];
             const apiCompliance = status.compliance;
             setLegalMatches(status.matches || []);
             setCitations(status.citations || apiCompliance?.citations || []);
 
             setClauses(
-              apiClauses.map((c) => ({
+              apiClauses.map((c: any) => ({
                 id: c.id,
                 type: c.type,
                 text: c.text,
@@ -171,17 +267,23 @@ export default function ContractReviewPage() {
 
             if (apiCompliance) {
               setCompliance({
-                violations: apiCompliance.violations.map((v) => ({
+                violations: apiCompliance.violations.map((v: any) => ({
                   clause: v.clause,
                   description: v.description,
                   citation: v.citation,
                   verified: v.verified,
+                  contractClauseId: v.contractClauseId,
+                  contractClauseType: v.contractClauseType,
                 })),
                 risks: apiCompliance.risks,
                 suggestions: apiCompliance.suggestions,
               });
             }
 
+            setSourceName(status.filename || "");
+            setCurrentJobId(jobId);
+            localStorage.setItem("lastJobId", jobId);
+            loadJobHistory();
             setViewMode("results");
           } else if (status.status === "failed") {
             clearInterval(pollInterval);
@@ -193,7 +295,6 @@ export default function ContractReviewPage() {
         }
       }, 1000);
 
-      // Timeout after 5 minutes
       setTimeout(() => {
         clearInterval(pollInterval);
       }, 5 * 60 * 1000);
@@ -204,7 +305,6 @@ export default function ContractReviewPage() {
     }
   };
 
-  // Resizable split pane
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -246,13 +346,50 @@ export default function ContractReviewPage() {
     if (!clauses.length) return text;
     let result = text;
     clauses.forEach((clause) => {
-      const color = clause.riskLevel === "high" ? "bg-accent/30" : clause.riskLevel === "medium" ? "bg-yellow-200/50" : "bg-green-100/50";
-      const border = clause.riskLevel === "high" ? "border-b-2 border-accent" : clause.riskLevel === "medium" ? "border-b-2 border-yellow-500" : "border-b-2 border-green-500";
+      const isHighlighted = clause.id === highlightedClauseId;
+      const color = isHighlighted
+        ? "bg-accent/50 ring-2 ring-accent"
+        : clause.riskLevel === "high"
+        ? "bg-accent/20"
+        : clause.riskLevel === "medium"
+        ? "bg-yellow-200/30"
+        : "bg-green-100/30";
       const escaped = clause.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const regex = new RegExp(`(${escaped})`, "g");
-      result = result.replace(regex, `<span class="${color} ${border} px-1 rounded">$1</span>`);
+      result = result.replace(regex, `<span class="${color} px-1 rounded transition-all duration-300">$1</span>`);
     });
     return result;
+  };
+
+  const uniqueDocuments = useMemo(() => {
+    const docMap = new Map<string, { title: string; citations: CitationResult[] }>();
+    citations.forEach((c) => {
+      const docTitle = c.documentTitle || "Văn bản pháp luật";
+      if (!docMap.has(docTitle)) {
+        docMap.set(docTitle, { title: docTitle, citations: [] });
+      }
+      docMap.get(docTitle)!.citations.push(c);
+    });
+    return Array.from(docMap.values());
+  }, [citations]);
+
+  const loadDocumentContent = async (docTitle: string) => {
+    setDocumentLoading(true);
+    try {
+      const encodedTitle = encodeURIComponent(docTitle);
+      const response = await fetch(`/api/contracts/documents/${encodedTitle}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedDocument(data);
+      } else {
+        alert("Không thể tải nội dung văn bản");
+      }
+    } catch (err) {
+      console.error("Failed to load document:", err);
+      alert("Lỗi khi tải nội dung văn bản");
+    } finally {
+      setDocumentLoading(false);
+    }
   };
 
   const currentStep = analyzeSteps.find((s) => progress < s.threshold) || analyzeSteps[analyzeSteps.length - 1];
@@ -270,18 +407,28 @@ export default function ContractReviewPage() {
           )}
           <h1 className="font-heading text-3xl text-fg">Rà soát hợp đồng</h1>
         </div>
-        {viewMode === "preview" && (
-          <WobblyButton onClick={handleAnalyze} size="lg">
-            <Eye className="w-5 h-5 mr-2" />
-            Rà soát ngay
-          </WobblyButton>
-        )}
+        <div className="flex items-center gap-2">
+          {viewMode === "results" && (
+            <button
+              onClick={() => setViewMode("history")}
+              className="flex items-center gap-2 font-body text-sm text-fg/60 hover:text-fg transition-colors px-3 py-2 border-2 border-fg/20 rounded-lg"
+            >
+              <Clock className="w-4 h-4" />
+              Lịch sử
+            </button>
+          )}
+          {viewMode === "preview" && (
+            <WobblyButton onClick={handleAnalyze} size="lg">
+              <Eye className="w-5 h-5 mr-2" />
+              Rà soát ngay
+            </WobblyButton>
+          )}
+        </div>
       </div>
 
       {/* Upload Zone */}
       {viewMode === "upload" && (
         <WobblyCard decoration="tape" className="flex-1 flex flex-col items-center justify-center">
-          {/* Toggle: File / Text */}
           <div className="flex gap-2 mb-6">
             <button
               className={cn(
@@ -384,7 +531,6 @@ export default function ContractReviewPage() {
             <h3 className="font-heading text-2xl text-fg mb-2">Đang phân tích hợp đồng</h3>
             <p className="font-body text-fg/60 mb-8">AI đang đọc và đối chiếu với pháp luật hiện hành...</p>
 
-            {/* Progress bar */}
             <div className="w-full border-2 border-fg bg-white p-1.5 mb-3" style={{ borderRadius: "12px" }}>
               <motion.div
                 className="h-5 bg-gradient-to-r from-secondary to-accent"
@@ -398,7 +544,6 @@ export default function ContractReviewPage() {
               <span className="font-body text-sm text-fg/60">{currentStep.label}</span>
             </div>
 
-            {/* Steps */}
             <div className="space-y-3 text-left">
               {analyzeSteps.map((step, i) => {
                 const isDone = progress >= step.threshold;
@@ -419,6 +564,40 @@ export default function ContractReviewPage() {
                 );
               })}
             </div>
+          </div>
+        </WobblyCard>
+      )}
+
+      {/* History View */}
+      {viewMode === "history" && (
+        <WobblyCard className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex items-center gap-3 mb-4 pb-3 border-b border-fg/10">
+            <Clock className="w-5 h-5 text-fg/40" />
+            <h3 className="font-heading text-lg text-fg">Lịch sử rà soát</h3>
+          </div>
+          <div className="flex-1 overflow-auto space-y-2">
+            {jobHistory.length === 0 ? (
+              <div className="text-center py-12 text-fg/40 font-body">
+                Chưa có lịch sử rà soát nào
+              </div>
+            ) : (
+              jobHistory.map((job) => (
+                <div
+                  key={job.jobId}
+                  className="flex items-center gap-3 p-3 border-2 border-fg/10 rounded-lg hover:border-secondary/50 transition-colors cursor-pointer"
+                  onClick={() => loadJobResult(job.jobId)}
+                >
+                  <FileText className="w-5 h-5 text-fg/40 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-body text-sm text-fg truncate">{job.filename}</p>
+                    <p className="font-body text-xs text-fg/40">{new Date(job.createdAt).toLocaleString("vi-VN")}</p>
+                  </div>
+                  <WobblyBadge variant={job.status === "completed" ? "secondary" : job.status === "failed" ? "accent" : "default"}>
+                    {job.status === "completed" ? "Hoàn thành" : job.status === "failed" ? "Thất bại" : "Đang xử lý"}
+                  </WobblyBadge>
+                </div>
+              ))
+            )}
           </div>
         </WobblyCard>
       )}
@@ -468,27 +647,33 @@ export default function ContractReviewPage() {
               </div>
 
               <div className="flex-1 overflow-auto space-y-4 pr-2">
-                {/* Violations */}
+                {/* Violations / Risks Found */}
                 {compliance?.violations && compliance.violations.length > 0 && (
                   <div>
                     <h4 className="font-heading text-lg text-accent mb-2 flex items-center gap-2">
-                      <XCircle className="w-5 h-5" />
-                      Vi phạm ({compliance.violations.length})
+                      <AlertTriangle className="w-5 h-5" />
+                      {compliance.violations.length} rủi ro được tìm thấy
                     </h4>
                     <div className="space-y-2">
                       {compliance.violations.map((v, i) => (
-                        <div key={i} className="bg-postit border-2 border-accent/30 p-3" style={{ borderRadius: "60px 4px 45px 4px / 4px 45px 4px 60px" }}>
+                        <div
+                          key={i}
+                          className="bg-accent/10 border-2 border-accent/30 p-3 cursor-pointer hover:bg-accent/20 transition-colors"
+                          style={{ borderRadius: "12px 4px 12px 4px" }}
+                          onClick={() => setHighlightedClauseId(highlightedClauseId === v.contractClauseId ? null : v.contractClauseId || null)}
+                        >
                           <div className="flex items-start gap-2">
-                            <AlertTriangle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-                            <div>
-                              <h5 className="font-heading text-fg">{v.clause}</h5>
-                              <p className="font-body text-sm text-fg/80">{v.description}</p>
-                              <div className="mt-1 flex items-center gap-2">
-                                <WobblyBadge variant={v.verified ? "secondary" : "default"}>
-                                  {v.verified ? "✓ VERIFIED" : "? UNVERIFIED"}
+                            <span className="font-heading text-accent text-sm flex-shrink-0 mt-0.5">#{i + 1}</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <WobblyBadge variant="accent" className="text-xs">
+                                  {v.contractClauseType || v.clause}
                                 </WobblyBadge>
-                                <span className="font-body text-xs text-fg/50">{v.citation}</span>
+                                <span className="font-body text-xs text-fg/50">Điều khoản hợp đồng</span>
                               </div>
+                              <h5 className="font-heading text-fg text-sm mb-1">{v.clause}</h5>
+                              <p className="font-body text-sm text-fg/80">{v.description}</p>
+                              <p className="mt-1 font-body text-xs text-fg/50">{v.citation}</p>
                             </div>
                           </div>
                         </div>
@@ -497,60 +682,91 @@ export default function ContractReviewPage() {
                   </div>
                 )}
 
-                {/* Risks */}
+                {/* Risks - Collapsible */}
                 {compliance?.risks && compliance.risks.length > 0 && (
                   <div>
-                    <h4 className="font-heading text-lg text-yellow-600 mb-2 flex items-center gap-2">
+                    <button
+                      className="w-full flex items-center gap-2 font-heading text-lg text-yellow-600 mb-2 hover:text-yellow-700 transition-colors"
+                      onClick={() => setExpandedRisks(!expandedRisks)}
+                    >
                       <AlertTriangle className="w-5 h-5" />
-                      Rủi ro ({compliance.risks.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {compliance.risks.map((risk, i) => (
-                        <div key={i} className="bg-yellow-50 border-2 border-yellow-300/50 p-3 font-body text-fg/80" style={{ borderRadius: "60px 4px 45px 4px / 4px 45px 4px 60px" }}>
-                          <span className="text-yellow-600 mr-2">⚠</span>{risk}
-                        </div>
-                      ))}
-                    </div>
+                      Cần xem xét ({compliance.risks.length})
+                      {expandedRisks ? <ChevronDown className="w-4 h-4 ml-auto" /> : <ChevronRight className="w-4 h-4 ml-auto" />}
+                    </button>
+                    <AnimatePresence>
+                      {expandedRisks && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="space-y-2">
+                            {compliance.risks.map((risk, i) => (
+                              <div key={i} className="bg-yellow-50 border-2 border-yellow-300/50 p-3 font-body text-sm text-fg/80" style={{ borderRadius: "12px 4px 12px 4px" }}>
+                                <span className="text-yellow-600 mr-2">⚠</span>{risk}
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
 
-                {/* Suggestions */}
+                {/* Suggestions - Collapsible */}
                 {compliance?.suggestions && compliance.suggestions.length > 0 && (
                   <div>
-                    <h4 className="font-heading text-lg text-secondary mb-2 flex items-center gap-2">
+                    <button
+                      className="w-full flex items-center gap-2 font-heading text-lg text-secondary mb-2 hover:text-secondary/80 transition-colors"
+                      onClick={() => setExpandedSuggestions(!expandedSuggestions)}
+                    >
                       <CheckCircle className="w-5 h-5" />
                       Đề xuất ({compliance.suggestions.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {compliance.suggestions.map((s, i) => (
-                        <div key={i} className="bg-blue-50 border-2 border-secondary/30 p-3 font-body text-fg/80" style={{ borderRadius: "60px 4px 45px 4px / 4px 45px 4px 60px" }}>
-                          <span className="text-secondary mr-2">→</span>{s}
-                        </div>
-                      ))}
-                    </div>
+                      {expandedSuggestions ? <ChevronDown className="w-4 h-4 ml-auto" /> : <ChevronRight className="w-4 h-4 ml-auto" />}
+                    </button>
+                    <AnimatePresence>
+                      {expandedSuggestions && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="space-y-2">
+                            {compliance.suggestions.map((s, i) => (
+                              <div key={i} className="bg-blue-50 border-2 border-secondary/30 p-3 font-body text-sm text-fg/80" style={{ borderRadius: "12px 4px 12px 4px" }}>
+                                <span className="text-secondary mr-2">→</span>{s}
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
 
-                {/* Verified citations */}
-                {citations.length > 0 && (
+                {/* Legal Documents Sources */}
+                {uniqueDocuments.length > 0 && (
                   <div>
                     <h4 className="font-heading text-lg text-fg mb-2 flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5" />
-                      Trích dẫn ({citations.length})
+                      <BookOpen className="w-5 h-5" />
+                      Văn bản pháp luật tham chiếu ({uniqueDocuments.length})
                     </h4>
                     <div className="space-y-2">
-                      {citations.map((citation) => (
-                        <div key={`${citation.uid}-${citation.displayText}`} className="bg-white border-2 border-fg/10 p-3" style={{ borderRadius: "12px 4px 12px 4px" }}>
+                      {uniqueDocuments.map((doc, i) => (
+                        <button
+                          key={i}
+                          className="w-full text-left bg-white border-2 border-fg/10 p-3 hover:border-secondary/50 hover:bg-secondary/5 transition-colors"
+                          style={{ borderRadius: "12px 4px 12px 4px" }}
+                          onClick={() => loadDocumentContent(doc.title)}
+                        >
                           <div className="flex items-center gap-2">
-                            <WobblyBadge variant={citation.verified ? "secondary" : "default"}>
-                              {citation.verified ? "✓ VERIFIED" : "? UNVERIFIED"}
-                            </WobblyBadge>
-                            <span className="font-body text-sm text-fg/80">{citation.displayText}</span>
+                            <FileText className="w-4 h-4 text-secondary flex-shrink-0" />
+                            <span className="font-body text-sm text-fg/80">{doc.title}</span>
+                            <WobblyBadge variant="secondary" className="ml-auto">{doc.citations.length} điều</WobblyBadge>
                           </div>
-                          {!citation.verified && citation.reason && (
-                            <p className="mt-1 font-body text-xs text-fg/50">{citation.reason}</p>
-                          )}
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -611,6 +827,85 @@ export default function ContractReviewPage() {
           </div>
         </div>
       )}
+
+      {/* Document Viewer Modal */}
+      <AnimatePresence>
+        {selectedDocument && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setSelectedDocument(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-fg/10 flex-shrink-0">
+                <div>
+                  <h3 className="font-heading text-lg text-fg">{selectedDocument.title}</h3>
+                  <p className="font-body text-xs text-fg/50">
+                    {selectedDocument.so_ky_hieu} • {selectedDocument.ngay_ban_hanh} • {selectedDocument.co_quan_ban_hanh}
+                  </p>
+                </div>
+                <button
+                  className="p-2 hover:bg-fg/10 rounded-full transition-colors"
+                  onClick={() => setSelectedDocument(null)}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-auto p-6">
+                {documentLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <Loader2 className="w-8 h-8 animate-spin text-fg/30" />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {selectedDocument.articles.map((article) => (
+                      <div key={article.uid} className="border-b border-fg/10 pb-4 last:border-0">
+                        <h4 className="font-heading text-base text-fg mb-2">
+                          {article.title}
+                        </h4>
+                        <p className="font-body text-sm text-fg/70 whitespace-pre-wrap mb-3">
+                          {article.text}
+                        </p>
+                        {article.clauses.length > 0 && (
+                          <div className="ml-4 space-y-2">
+                            {article.clauses.map((clause) => (
+                              <div key={clause.uid}>
+                                <p className="font-body text-sm text-fg/70 whitespace-pre-wrap">
+                                  {clause.text}
+                                </p>
+                                {clause.points.length > 0 && (
+                                  <div className="ml-4 mt-1 space-y-1">
+                                    {clause.points.map((point) => (
+                                      <p key={point.uid} className="font-body text-sm text-fg/70 whitespace-pre-wrap">
+                                        {point.letter ? `${point.letter} ` : ""}{point.text}
+                                      </p>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

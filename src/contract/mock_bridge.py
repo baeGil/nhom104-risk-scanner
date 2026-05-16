@@ -48,6 +48,44 @@ class EmbeddingService(ABC):
         ...
 
 
+class RealEmbeddingService(EmbeddingService):
+    """Real embedding service calling vietlegal-harrier-0.6b via HTTP API."""
+
+    def __init__(self, base_url: str = "http://localhost:8080"):
+        self._base_url = base_url
+        self._session = None
+
+    async def _get_session(self):
+        if self._session is None:
+            import aiohttp
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    async def embed(self, text: str) -> list[float]:
+        import aiohttp
+        session = await self._get_session()
+        async with session.post(
+            f"{self._base_url}/embed",
+            json={"texts": [text]},
+            timeout=aiohttp.ClientTimeout(total=30),
+        ) as resp:
+            resp.raise_for_status()
+            data = await resp.json()
+            return data["embeddings"][0]
+
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        import aiohttp
+        session = await self._get_session()
+        async with session.post(
+            f"{self._base_url}/embed",
+            json={"texts": texts},
+            timeout=aiohttp.ClientTimeout(total=60),
+        ) as resp:
+            resp.raise_for_status()
+            data = await resp.json()
+            return data["embeddings"]
+
+
 class MockEmbeddingService(EmbeddingService):
     """
     Mock embedding service returning deterministic pseudo-random vectors.
@@ -183,8 +221,8 @@ class MockEffectiveTextService(EffectiveTextService):
 def create_embedding_service() -> EmbeddingService:
     """Create embedding service based on config."""
     if EMBEDDING_SERVICE_MODE == "real":
-        from src.segmentation.embedder import ArticleEmbedder
-        return ArticleEmbedder()
+        from src.contract.mock_bridge import RealEmbeddingService
+        return RealEmbeddingService()
     return MockEmbeddingService(dimensions=EMBED_DIMENSIONS)
 
 

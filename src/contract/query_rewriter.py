@@ -7,6 +7,8 @@ and degraded operation.
 """
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import re
 from dataclasses import dataclass, field
@@ -15,6 +17,15 @@ from typing import Any, Optional
 from src.contract.models import ContractClause
 from src.llm.client import LLMClient, create_client
 from src.llm.prompts import PromptTemplate
+
+# LRU cache for query rewriting to avoid repeated LLM calls
+_rewrite_cache: dict[str, LegalRetrievalPlan] = {}
+_CACHE_MAX_SIZE = 500
+
+
+def _cache_key(text: str) -> str:
+    """Generate cache key from text."""
+    return hashlib.md5(text[:200].encode()).hexdigest()[:16]
 
 
 @dataclass
@@ -51,6 +62,11 @@ class QueryRewriter:
         text = clause.text_content if isinstance(clause, ContractClause) else str(clause)
         clause_type = clause.clause_type if isinstance(clause, ContractClause) else ""
 
+        # Check cache first
+        key = _cache_key(text)
+        if key in _rewrite_cache:
+            return _rewrite_cache[key]
+
         try:
             llm = self._llm or create_client()
             prompt = PromptTemplate("legal_query_rewrite").render(
@@ -60,6 +76,10 @@ class QueryRewriter:
             raw = await llm.chat(prompt, temperature=0.0)
             plan = self.parse_llm_output(raw, original_text=text)
             if plan.search_queries or plan.keywords or plan.legal_issue:
+                # Cache successful results
+                if len(_rewrite_cache) >= _CACHE_MAX_SIZE:
+                    _rewrite_cache.clear()
+                _rewrite_cache[key] = plan
                 return plan
         except Exception:
             pass
