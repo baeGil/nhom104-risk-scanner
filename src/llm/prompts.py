@@ -60,10 +60,50 @@ Phân tích và trả về JSON với cấu trúc sau:
 - confidence: số 0-1
 - intents: mảng, mỗi phần tử có type (LOOKUP/VALIDITY/COMPARISON/CHECKLIST/NUMERIC/TOPIC/SCENARIO/SEARCH), confidence, query_span [start, end], extracted (object chứa thông tin rút trích như document_name, article_number, year...)
 - sub_queries: mảng, mỗi phần tử có intent, query, retrieval_strategy, requires
+  - retrieval_strategy chỉ được dùng một trong: direct_lookup, hybrid_search, validity_check, comparison
+  - requires chỉ được dùng các token chuẩn: legal_provision, effective_text, document_metadata, conversation_context, contract_context, citation_validation, amendment_history
 - context_references: object
 - routing: object với primary_pipeline, fallback_pipeline, context_needed
 
+Quy tắc chọn retrieval_strategy:
+- Dùng direct_lookup chỉ khi câu hỏi nêu rõ căn cứ cụ thể có thể tra cứu trực tiếp, ví dụ Điều/Khoản/Điểm và tên hoặc số hiệu văn bản: "Điều 17 Luật Doanh nghiệp 2020", "khoản 2 Điều 5 Nghị định 12/2022/NĐ-CP".
+- Dùng hybrid_search cho câu hỏi tra cứu quy định chung theo chủ đề, nghĩa vụ, điều kiện, chế độ, mức phạt, thủ tục, quyền lợi, dù intent là LOOKUP. Ví dụ: "quy định về nghĩa vụ đóng bảo hiểm y tế khi ký hợp đồng lao động".
+- Dùng validity_check cho câu hỏi hỏi tính hợp pháp/hiệu lực/vi phạm/đúng luật hay không.
+- Dùng comparison cho câu hỏi so sánh hai hoặc nhiều quy định/văn bản.
+
 Chỉ trả về JSON, không giải thích.""")
+
+
+PromptTemplate.register("direct_reference_rewrite", """Bạn là hệ thống chuẩn hóa trích dẫn pháp luật Việt Nam cho truy hồi Neo4j.
+
+Input:
+{{query}}
+
+Nhiệm vụ:
+- Nếu input có thể quy về một căn cứ cụ thể, chuẩn hóa thành citation dạng: "điểm a khoản 1 Điều 1 Luật Lao động 2019" hoặc "khoản 2 Điều 5 Nghị định 12/2022/NĐ-CP".
+- Chỉ trích xuất căn cứ có trong input; không tự bịa số điều/khoản/điểm/văn bản.
+- Nếu input chỉ hỏi chủ đề chung và không nêu điều/khoản/điểm cụ thể, trả article=null và confidence thấp.
+
+Trả về duy nhất một JSON object:
+{
+  "canonical_citation": "citation đã chuẩn hóa hoặc chuỗi rỗng",
+  "article": 1,
+  "clause": "1",
+  "point": "a",
+  "document_hint": "Luật Lao động",
+  "so_ky_hieu": "45/2019/QH14",
+  "year": "2019",
+  "confidence": 0.0
+}
+
+Quy tắc:
+- article là số Điều hoặc null.
+- clause là số Khoản dạng string hoặc null.
+- point là chữ cái Điểm dạng lowercase hoặc null.
+- document_hint là tên văn bản ngắn, ví dụ "Luật Lao động", "Bộ luật Lao động", "Nghị định 12/2022/NĐ-CP".
+- so_ky_hieu chỉ điền khi input có số hiệu văn bản rõ ràng.
+- Không trả markdown, không giải thích ngoài JSON.
+""")
 
 # ---------------------------------------------------------------------------
 # Clause Extraction Template (T4.2)
@@ -187,5 +227,31 @@ Amendment history:
 {{amendment_history}}
 
 Trả lời bằng tiếng Việt, kèm trích dẫn chính xác (Điều X khoản Y Luật Z).
-Trả về JSON với keys: answer (string), citations (array).
+Trả về duy nhất một JSON object với schema:
+{
+  "answer": "câu trả lời tiếng Việt",
+  "citations": [
+    {
+      "display_text": "Điều/Khoản/Điểm + tên văn bản",
+      "uid": "uid lấy từ retrieved provisions",
+      "document_title": "tên văn bản",
+      "article": "số điều hoặc null",
+      "clause": "số khoản hoặc null",
+      "point": "ký hiệu điểm hoặc null",
+      "text": "đoạn căn cứ ngắn"
+    }
+  ],
+  "retrieval_status": "ok",
+  "confidence": 0.0,
+  "validity": {
+    "status": "verified | likely_current | unknown",
+    "reason": "lý do ngắn gọn",
+    "evidence": []
+  }
+}
+
+Quy tắc:
+- Chỉ dùng citation uid xuất hiện trong Retrieved provisions.
+- Nếu validity không chắc chắn, nói rõ là dữ liệu quan hệ chưa đủ để kết luận chắc chắn.
+- Không trả về markdown hoặc giải thích ngoài JSON.
 """)

@@ -27,6 +27,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
+from src.logging_setup import configure_logging
+
 logger = logging.getLogger(__name__)
 
 CHECKPOINT_FILE = "output/pipeline_checkpoint.json"
@@ -226,14 +228,7 @@ def _now_iso() -> str:
 
 
 def _setup_logging(level: str = "INFO") -> None:
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler("output/pipeline.log", encoding="utf-8"),
-        ],
-    )
+    configure_logging(level, "output/pipeline.log")
 
 
 def main() -> None:

@@ -18,8 +18,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from neo4j import GraphDatabase
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 from src.config import EMBED_DIMENSIONS, NEO4J_URI, neo4j_auth
+from src.logging_setup import configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -181,32 +185,61 @@ class LegalSegmentIndexManager:
 
 
 def print_report(report: ValidationReport) -> None:
-    print("LegalSegment validation")
-    print(f"- legal_segment_count: {report.legal_segment_count}")
-    print(f"- missing_legal_segment_labels: {report.missing_legal_segment_labels}")
-    print(f"- missing_indexes: {report.missing_indexes or 'none'}")
-    print("- embedded_by_label:")
+    console = Console()
+    summary = Table.grid(expand=True)
+    summary.add_column(ratio=1)
+    summary.add_column(ratio=2)
+    summary.add_row("Legal segments", str(report.legal_segment_count))
+    summary.add_row("Missing labels", str(report.missing_legal_segment_labels))
+    summary.add_row("Missing indexes", ", ".join(report.missing_indexes) if report.missing_indexes else "none")
+    console.print(Panel(summary, title="LegalSegment validation", border_style="cyan"))
+
+    embedded_table = Table(title="Embedded by label", show_lines=True, expand=True)
+    embedded_table.add_column("Labels")
+    embedded_table.add_column("Count", justify="right")
     for row in report.embedded_by_label:
-        print(f"  - {row}")
-    print("- sample_dimensions:")
+        embedded_table.add_row(str(row.get("labels")), str(row.get("count")))
+    console.print(embedded_table)
+
+    dims_table = Table(title="Sample dimensions", show_lines=True, expand=True)
+    dims_table.add_column("Labels")
+    dims_table.add_column("UID")
+    dims_table.add_column("Dimensions", justify="right")
     for row in report.sample_dimensions:
-        print(f"  - {row}")
-    print("- indexes:")
+        dims_table.add_row(str(row.get("labels")), str(row.get("uid")), str(row.get("dimensions")))
+    console.print(dims_table)
+
+    index_table = Table(title="Indexes", show_lines=True, expand=True)
+    index_table.add_column("Name")
+    index_table.add_column("Type")
+    index_table.add_column("Entity")
+    index_table.add_column("Labels/Types")
+    index_table.add_column("Properties")
+    index_table.add_column("State")
     for idx in report.indexes:
         if idx["name"] in {
             LEGAL_SEGMENT_VECTOR_INDEX,
             LEGAL_SEGMENT_FULLTEXT_INDEX,
             DOCUMENT_TITLE_FULLTEXT_INDEX,
         }:
-            print(f"  - {idx}")
+            index_table.add_row(
+                str(idx.get("name")),
+                str(idx.get("type")),
+                str(idx.get("entityType")),
+                str(idx.get("labelsOrTypes")),
+                str(idx.get("properties")),
+                str(idx.get("state")),
+            )
+    console.print(index_table)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Manage LegalSegment retrieval indexes")
     parser.add_argument("command", choices=["apply", "validate"])
+    parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
+    configure_logging(args.log_level)
 
     manager = LegalSegmentIndexManager()
     try:

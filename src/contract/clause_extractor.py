@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from typing import Any, Optional
 
@@ -24,6 +25,9 @@ from src.llm.client import LLMClient, create_client
 from src.llm.prompts import PromptTemplate
 from src.contract.models import Contract, ContractClause
 from src.contract.mock_bridge import create_embedding_service
+
+
+logger = logging.getLogger(__name__)
 
 
 class ClauseExtractor:
@@ -118,7 +122,11 @@ class ClauseExtractor:
             return
 
         texts = [c.text_content for c in clauses]
-        embeddings = await self._embedding_service.embed_batch(texts)
+        try:
+            embeddings = await self._embedding_service.embed_batch(texts)
+        except Exception as exc:
+            logger.warning("Clause embedding generation skipped: %s", exc)
+            return
 
         for clause, embedding in zip(clauses, embeddings):
             clause.embedding = embedding

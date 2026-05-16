@@ -11,6 +11,7 @@ from typing import Any, Optional
 from .models import IntentClassification, SubIntent, SubQuery, ConversationContext
 from .client import LLMClient, create_client
 from .prompts import PromptTemplate
+from .qa_planner import normalize_retrieval_strategy, normalize_requires
 
 
 class IntentAnalyzer:
@@ -91,11 +92,17 @@ class IntentAnalyzer:
 
         sub_queries = []
         for sq_data in raw.get("sub_queries", []):
+            intent_type = str(sq_data.get("intent", "LOOKUP")).upper()
+            strategy = normalize_retrieval_strategy(
+                str(sq_data.get("retrieval_strategy", "direct_lookup")),
+                intent_type,
+            )
+            requires = normalize_requires(list(sq_data.get("requires", [])), intent_type, strategy)
             sub_queries.append(SubQuery(
-                intent=sq_data.get("intent", "LOOKUP"),
+                intent=intent_type,
                 query=sq_data.get("query", query),
-                retrieval_strategy=sq_data.get("retrieval_strategy", "direct_lookup"),
-                requires=sq_data.get("requires", []),
+                retrieval_strategy=strategy,
+                requires=requires,
             ))
 
         return IntentClassification(
