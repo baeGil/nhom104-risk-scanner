@@ -29,7 +29,7 @@ interface ComplianceResult {
 }
 
 import { contractApi } from "@/lib/api-contract";
-import type { ContractClause as ApiClause, ComplianceResult as ApiCompliance } from "@/lib/mock-api-contract";
+import type { CitationResult, LegalMatch } from "@/lib/api-contract";
 
 const analyzeSteps = [
   { label: "Đang tải lên tài liệu", threshold: 20 },
@@ -51,6 +51,8 @@ export default function ContractReviewPage() {
   const [expandedClauses, setExpandedClauses] = useState<Set<string>>(new Set());
   const [clauses, setClauses] = useState<Clause[]>([]);
   const [compliance, setCompliance] = useState<ComplianceResult | null>(null);
+  const [legalMatches, setLegalMatches] = useState<LegalMatch[]>([]);
+  const [citations, setCitations] = useState<CitationResult[]>([]);
   const [sourceName, setSourceName] = useState("");
   const [converting, setConverting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,6 +71,8 @@ export default function ContractReviewPage() {
     setTextContent("");
     setClauses([]);
     setCompliance(null);
+    setLegalMatches([]);
+    setCitations([]);
     setSourceName("");
     setProgress(0);
     setViewMode("upload");
@@ -153,6 +157,8 @@ export default function ContractReviewPage() {
             // Map API response to local types
             const apiClauses = status.clauses || [];
             const apiCompliance = status.compliance;
+            setLegalMatches(status.matches || []);
+            setCitations(status.citations || apiCompliance?.citations || []);
 
             setClauses(
               apiClauses.map((c) => ({
@@ -179,7 +185,7 @@ export default function ContractReviewPage() {
             setViewMode("results");
           } else if (status.status === "failed") {
             clearInterval(pollInterval);
-            alert("Phân tích thất bại. Vui lòng thử lại.");
+            alert(status.error || "Phân tích thất bại. Vui lòng thử lại.");
             setViewMode("preview");
           }
         } catch (err) {
@@ -525,6 +531,31 @@ export default function ContractReviewPage() {
                   </div>
                 )}
 
+                {/* Verified citations */}
+                {citations.length > 0 && (
+                  <div>
+                    <h4 className="font-heading text-lg text-fg mb-2 flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5" />
+                      Trích dẫn ({citations.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {citations.map((citation) => (
+                        <div key={`${citation.uid}-${citation.displayText}`} className="bg-white border-2 border-fg/10 p-3" style={{ borderRadius: "12px 4px 12px 4px" }}>
+                          <div className="flex items-center gap-2">
+                            <WobblyBadge variant={citation.verified ? "secondary" : "default"}>
+                              {citation.verified ? "✓ VERIFIED" : "? UNVERIFIED"}
+                            </WobblyBadge>
+                            <span className="font-body text-sm text-fg/80">{citation.displayText}</span>
+                          </div>
+                          {!citation.verified && citation.reason && (
+                            <p className="mt-1 font-body text-xs text-fg/50">{citation.reason}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* All Clauses */}
                 <div>
                   <h4 className="font-heading text-lg text-fg mb-2 flex items-center gap-2">
@@ -550,9 +581,25 @@ export default function ContractReviewPage() {
                         </div>
                         <AnimatePresence>
                           {expandedClauses.has(clause.id) && (
-                            <motion.p className="mt-2 text-sm" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
-                              {clause.text}
-                            </motion.p>
+                            <motion.div className="mt-2 space-y-3 text-sm" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+                              <p>{clause.text}</p>
+                              {legalMatches.filter((match) => match.clauseId === clause.id).length > 0 && (
+                                <div className="space-y-2">
+                                  {legalMatches.filter((match) => match.clauseId === clause.id).slice(0, 5).map((match) => (
+                                    <div key={match.uid} className="bg-white/70 border border-fg/10 p-2" style={{ borderRadius: "8px" }}>
+                                      <div className="flex items-center gap-2">
+                                        <WobblyBadge variant="secondary">{match.segmentType}</WobblyBadge>
+                                        <span className="font-body text-xs text-fg/70">{match.citation}</span>
+                                      </div>
+                                      <div className="mt-1 flex items-center gap-2 font-body text-[11px] text-fg/50">
+                                        <span>score {match.score.toFixed(3)}</span>
+                                        {match.validitySignal !== "latest_known" && <span>{match.validitySignal}</span>}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </motion.div>
                           )}
                         </AnimatePresence>
                       </div>

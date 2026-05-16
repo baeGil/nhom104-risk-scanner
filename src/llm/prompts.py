@@ -86,6 +86,40 @@ Trả về JSON array.
 """)
 
 # ---------------------------------------------------------------------------
+# Legal Query Rewrite Template (Task 4 Hybrid Retrieval)
+# ---------------------------------------------------------------------------
+
+PromptTemplate.register("legal_query_rewrite", """Bạn là hệ thống rewrite query pháp lý cho rà soát hợp đồng.
+
+Nhiệm vụ: chuyển điều khoản hợp đồng thành kế hoạch tìm kiếm pháp luật.
+
+Clause type:
+{{clause_type}}
+
+Contract clause:
+{{clause_text}}
+
+Trả về duy nhất một JSON object với schema:
+{
+  "original_text": "điều khoản gốc",
+  "legal_issue": "vấn đề pháp lý ngắn gọn",
+  "search_queries": ["các truy vấn pháp lý tự nhiên"],
+  "keywords": ["cụm từ pháp lý quan trọng"],
+  "expected_domains": ["tên luật/nghị định/bộ luật có khả năng liên quan"],
+  "title_hints": ["tên văn bản hoặc chủ đề cần boost"],
+  "risk_type": "penalty_cap | termination | wage_benefits | confidentiality | dispute_resolution | general",
+  "filters": {"document_types": ["Luật", "Bộ luật", "Nghị định", "Thông tư"]},
+  "confidence": 0.0
+}
+
+Yêu cầu:
+- Không phân tích tuân thủ ở bước này.
+- Không bịa citation cụ thể.
+- Ưu tiên thuật ngữ pháp lý Việt Nam ngắn, dễ search.
+- Chỉ trả về JSON, không giải thích.
+""")
+
+# ---------------------------------------------------------------------------
 # Compliance Analysis Template (T4.4)
 # ---------------------------------------------------------------------------
 
@@ -100,13 +134,38 @@ Matched legal provisions:
 Amendment history:
 {{amendment_history}}
 
-Với mỗi điều khoản, trả về:
-- violations: Vi phạm pháp luật cụ thể
-- risks: Rủi ro pháp lý
-- suggestions: Đề xuất sửa đổi
-- citations: Trích dẫn nguồn (Điều X khoản Y Luật/ND/TT)
+Trả về duy nhất một JSON object với schema:
+{
+  "violations": [
+    {
+      "clause": "tên hoặc loại điều khoản",
+      "description": "mô tả vi phạm hoặc điểm chưa phù hợp",
+      "citation": "trích dẫn pháp lý dạng dễ đọc",
+      "severity": "low | medium | high"
+    }
+  ],
+  "risks": ["rủi ro pháp lý"],
+  "suggestions": ["đề xuất sửa đổi"],
+  "citations": [
+    {
+      "display_text": "Điều/Khoản/Điểm + tên văn bản",
+      "uid": "uid của matched provision",
+      "document_title": "tên văn bản",
+      "article": "số điều hoặc null",
+      "clause": "số khoản hoặc null",
+      "point": "ký hiệu điểm hoặc null"
+    }
+  ]
+}
 
-Trả về JSON.
+Quy tắc citation:
+- Chỉ dùng uid xuất hiện trong Matched legal provisions.
+- display_text phải là trích dẫn dễ đọc: Điều/Khoản/Điểm + tên văn bản.
+- Nếu validity_signal không phải latest_known, nêu rõ rủi ro văn bản có thể đã bị sửa đổi.
+- Nếu không có vi phạm, trả về "violations": [].
+- Không trả về mảng string cho violations. Mỗi violation phải là một object đúng schema.
+
+Chỉ trả về JSON object, không giải thích, không markdown.
 """)
 
 # ---------------------------------------------------------------------------

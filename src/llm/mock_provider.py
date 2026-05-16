@@ -327,6 +327,22 @@ class MockLLMProvider(LLMClient):
         "citations": [],
     }
 
+    QUERY_REWRITE_RESPONSE = {
+        "original_text": "Phạt 30% giá trị hợp đồng khi đơn phương chấm dứt trước thời hạn.",
+        "legal_issue": "mức phạt vi phạm hợp đồng thương mại",
+        "search_queries": [
+            "mức phạt vi phạm hợp đồng tối đa",
+            "phạt vi phạm 8% giá trị phần nghĩa vụ bị vi phạm",
+            "đơn phương chấm dứt hợp đồng và phạt vi phạm",
+        ],
+        "keywords": ["phạt vi phạm", "8%", "nghĩa vụ bị vi phạm", "đơn phương chấm dứt"],
+        "expected_domains": ["Luật Thương mại", "Bộ luật Dân sự"],
+        "title_hints": ["Luật Thương mại", "Bộ luật Dân sự"],
+        "risk_type": "penalty_cap",
+        "filters": {"document_types": ["Luật", "Bộ luật"]},
+        "confidence": 0.85,
+    }
+
     def _classify_query(self, query: str) -> str:
         """Classify query to select appropriate mock response."""
         q = query.lower()
@@ -354,6 +370,8 @@ class MockLLMProvider(LLMClient):
         # Determine response type from prompt
         if "trích xuất các điều khoản" in prompt.lower():
             return self.CLAUSE_EXTRACTION_RESPONSE
+        if "rewrite query pháp lý" in prompt.lower():
+            return self.QUERY_REWRITE_RESPONSE
         if "phân tích tuân thủ" in prompt.lower():
             return self.COMPLIANCE_RESPONSE
         if "trả lời câu hỏi pháp lý" in prompt.lower():

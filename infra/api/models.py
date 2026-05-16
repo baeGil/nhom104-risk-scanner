@@ -57,6 +57,25 @@ class ContractClauseResponse(BaseModel):
     riskLevel: str = "medium"
 
 
+class LegalMatchResponse(BaseModel):
+    clauseId: str
+    uid: str
+    citation: str
+    documentTitle: str = ""
+    segmentType: str = ""
+    score: float = 0.0
+    validitySignal: str = "latest_known"
+    scoreFactors: dict = {}
+
+
+class CitationResponse(BaseModel):
+    displayText: str
+    uid: str
+    verified: bool = False
+    reason: str = ""
+    documentTitle: str = ""
+
+
 class ComplianceViolationResponse(BaseModel):
     clause: str
     description: str
@@ -68,6 +87,7 @@ class ComplianceResultResponse(BaseModel):
     violations: list[ComplianceViolationResponse] = []
     risks: list[str] = []
     suggestions: list[str] = []
+    citations: list[CitationResponse] = []
 
 
 class JobStatusResponse(BaseModel):
@@ -77,4 +97,7 @@ class JobStatusResponse(BaseModel):
     filename: str
     createdAt: str
     clauses: Optional[list[ContractClauseResponse]] = None
+    matches: Optional[list[LegalMatchResponse]] = None
     compliance: Optional[ComplianceResultResponse] = None
+    citations: Optional[list[CitationResponse]] = None
+    error: Optional[str] = None

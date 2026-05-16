@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from neo4j import GraphDatabase
 
 from src.config import NEO4J_URI, NEO4J_TIMEOUT, neo4j_auth
+from src.contract.citations import LegalCitation
 
 
 @dataclass
@@ -58,6 +59,8 @@ class VerificationResult:
     is_current: bool = False
     reason: str = ""
     article_uid: str = ""
+    segment_uid: str = ""
+    document_title: str = ""
 
 
 class CitationVerifier:
@@ -81,20 +84,23 @@ class CitationVerifier:
     def __init__(self) -> None:
         self._driver = GraphDatabase.driver(NEO4J_URI, auth=neo4j_auth())
 
-    async def verify(self, citation_text: str) -> VerificationResult:
+    async def verify(self, citation_text: str | LegalCitation) -> VerificationResult:
         """
         Verify a single citation.
 
         Args:
-            citation_text: Citation string to verify
+            citation_text: Citation string or structured citation to verify
 
         Returns:
             VerificationResult with verified status and reason
         """
+        if isinstance(citation_text, LegalCitation):
+            return await self._verify_uid_citation(citation_text)
+
         parsed = self.parse_citation(citation_text)
         return await self._verify_parsed(parsed)
 
-    async def verify_batch(self, citations: list[str]) -> list[VerificationResult]:
+    async def verify_batch(self, citations: list[str | LegalCitation]) -> list[VerificationResult]:
         """
         Verify multiple citations.
 
@@ -127,7 +133,110 @@ class CitationVerifier:
             point_letter=match.group(3),
             document_type=match.group(4) or "",
             so_ky_hieu=match.group(5) or "",
+            )
+
+    async def _verify_uid_citation(self, citation: LegalCitation) -> VerificationResult:
+        parsed = ParsedCitation(
+            raw_text=citation.display_text,
+            article_number=int(citation.article) if citation.article and str(citation.article).isdigit() else None,
+            clause_number=int(citation.clause) if citation.clause and str(citation.clause).isdigit() else None,
+            point_letter=citation.point,
         )
+
+        if not citation.uid:
+            return VerificationResult(
+                citation=parsed,
+                verified=False,
+                reason="Citation uid is missing",
+            )
+
+        try:
+            context = self._fetch_uid_context(citation.uid)
+        except Exception as e:
+            return VerificationResult(
+                citation=parsed,
+                verified=False,
+                reason=f"Neo4j query failed: {str(e)}",
+                segment_uid=citation.uid,
+            )
+
+        if not context:
+            return VerificationResult(
+                citation=parsed,
+                verified=False,
+                reason="Citation uid not found in graph",
+                segment_uid=citation.uid,
+            )
+
+        mismatch = self._citation_mismatch_reason(citation, context)
+        if mismatch:
+            return VerificationResult(
+                citation=parsed,
+                verified=False,
+                reason=mismatch,
+                article_uid=context.get("article_uid", ""),
+                segment_uid=citation.uid,
+                document_title=context.get("document_title", ""),
+            )
+
+        return VerificationResult(
+            citation=parsed,
+            verified=True,
+            is_current=context.get("is_current", True),
+            article_uid=context.get("article_uid", ""),
+            segment_uid=citation.uid,
+            document_title=context.get("document_title", ""),
+        )
+
+    def _fetch_uid_context(self, uid: str) -> Optional[dict[str, Any]]:
+        cypher = """
+        MATCH (node {uid: $uid})
+        OPTIONAL MATCH (doc_a:Document)-[:HAS_ARTICLE]->(node)
+        OPTIONAL MATCH (doc_ch:Document)-[:HAS_CHAPTER]->(:Chapter)-[:HAS_ARTICLE]->(node)
+        OPTIONAL MATCH (article_for_clause:Article)-[:HAS_CLAUSE]->(node)
+        OPTIONAL MATCH (doc_c1:Document)-[:HAS_ARTICLE]->(article_for_clause)
+        OPTIONAL MATCH (doc_c2:Document)-[:HAS_CHAPTER]->(:Chapter)-[:HAS_ARTICLE]->(article_for_clause)
+        OPTIONAL MATCH (clause_for_point:Clause)-[:HAS_POINT]->(node)
+        OPTIONAL MATCH (article_for_point:Article)-[:HAS_CLAUSE]->(clause_for_point)
+        OPTIONAL MATCH (doc_p1:Document)-[:HAS_ARTICLE]->(article_for_point)
+        OPTIONAL MATCH (doc_p2:Document)-[:HAS_CHAPTER]->(:Chapter)-[:HAS_ARTICLE]->(article_for_point)
+        WITH node,
+             coalesce(doc_a, doc_ch, doc_c1, doc_c2, doc_p1, doc_p2) AS doc,
+             coalesce(article_for_clause, article_for_point, CASE WHEN node:Article THEN node ELSE null END) AS article,
+             coalesce(clause_for_point, CASE WHEN node:Clause THEN node ELSE null END) AS clause
+        RETURN node.uid AS uid,
+               coalesce(article.uid, node.uid) AS article_uid,
+               coalesce(article.index, CASE WHEN node:Article THEN node.index ELSE null END) AS article,
+               coalesce(clause.index, CASE WHEN node:Clause THEN node.index ELSE null END) AS clause,
+               CASE WHEN node:Point THEN node.letter ELSE null END AS point,
+               doc.title AS document_title,
+               coalesce(node.is_current, article.is_current, true) AS is_current
+        """
+        with self._driver.session(default_access_mode="READ", database="neo4j") as session:
+            record = session.run(
+                cypher,
+                uid=uid,
+                config={"maxTransactionRetryTime": NEO4J_TIMEOUT * 1000},
+            ).single()
+            return dict(record) if record else None
+
+    def _citation_mismatch_reason(self, citation: LegalCitation, context: dict[str, Any]) -> str:
+        checks = [
+            ("article", citation.article, context.get("article")),
+            ("clause", citation.clause, context.get("clause")),
+            ("point", citation.point, context.get("point")),
+        ]
+        for name, expected, actual in checks:
+            if expected is not None and str(expected).strip().lower() != str(actual or "").strip().lower():
+                return f"Citation {name} mismatch: expected {expected}, got {actual}"
+
+        if citation.document_title and context.get("document_title"):
+            expected_title = citation.document_title.strip().lower()
+            actual_title = str(context["document_title"]).strip().lower()
+            if expected_title and expected_title not in actual_title and actual_title not in expected_title:
+                return "Citation document title mismatch"
+
+        return ""
 
     async def _verify_parsed(self, parsed: ParsedCitation) -> VerificationResult:
         """Verify a parsed citation against Neo4j."""

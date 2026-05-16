@@ -14,6 +14,8 @@ pyarrow>=14.0.0
 beautifulsoup4>=4.12.0
 lxml>=5.0.0
 requests>=2.31.0
+httpx>=0.25.0
+tqdm>=4.66.0
 neo4j>=5.15.0
 
 # ── Segmentation (Người B: T1.1–T1.6) ───────────────────────────────────────
@@ -30,10 +32,12 @@ uvicorn[standard]>=0.29.0
 python-multipart>=0.0.9
 torch>=2.2.0
 transformers>=4.40.0
+sentence-transformers>=2.2.0
 numpy>=1.26.0
 
 # ── Contract Parser (Người C: T4.1) ─────────────────────────────────────────
 # mineru>=3.1.0  # Uncomment if you need MinerU (requires GPU for best results)
+pymupdf>=1.24.0
 
 # ── LLM Layer (Người C: T5.1–T5.4) ──────────────────────────────────────────
 openai>=1.10.0
@@ -46,3 +50,4 @@ python-jose[cryptography]>=3.3.0
 
 # ── Testing ──────────────────────────────────────────────────────────────────
 pytest>=7.4.0
+pytest-asyncio>=0.23.0

@@ -11,9 +11,14 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Optional
 
+from dotenv import load_dotenv
+
 logger = logging.getLogger(__name__)
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
 # Retry configuration
 MAX_RETRIES = 3
@@ -60,23 +65,20 @@ class LLMClient(ABC):
 
 class OpenAIClient(LLMClient):
     """
-    OpenAI-compatible provider.
+    OpenAI provider.
 
     Configuration via environment variables:
         OPENAI_API_KEY: API key (required)
         OPENAI_MODEL: Model name (default: gpt-5.4-mini)
-        OPENAI_BASE_URL: Custom base URL for compatible APIs (optional)
     """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
-        base_url: Optional[str] = None,
     ) -> None:
         self._api_key = api_key or os.getenv("OPENAI_API_KEY", "")
         self._model = model or os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
-        self._base_url = base_url or os.getenv("OPENAI_BASE_URL") or None
         if not self._api_key:
             raise ValueError("OPENAI_API_KEY is required. Set it in .env or environment.")
         self._client = None
@@ -85,10 +87,7 @@ class OpenAIClient(LLMClient):
         """Lazy initialize client."""
         if self._client is None:
             from openai import AsyncOpenAI
-            kwargs = {"api_key": self._api_key}
-            if self._base_url:
-                kwargs["base_url"] = self._base_url
-            self._client = AsyncOpenAI(**kwargs)
+            self._client = AsyncOpenAI(api_key=self._api_key)
         return self._client
 
     async def chat(
@@ -174,7 +173,6 @@ def create_client(
         return OpenAIClient(
             api_key=kwargs.get("api_key"),
             model=kwargs.get("model"),
-            base_url=kwargs.get("base_url"),
         )
     else:
         raise ValueError(f"Unknown LLM provider: {provider}. Supported: openai")

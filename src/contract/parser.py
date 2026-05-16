@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 import os
+import base64
 import subprocess
 import tempfile
 import uuid
@@ -21,11 +22,12 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
+from src.config import CONTRACT_OCR_MAX_PAGES, CONTRACT_OCR_MIN_TEXT_CHARS, OPENAI_OCR_MODEL
 from .models import Contract, ParseError
 from .pii import detect_pii, redact_pii
 
 
-SUPPORTED_FORMATS = {".pdf", ".docx", ".txt"}
+SUPPORTED_FORMATS = {".pdf", ".docx", ".txt", ".md"}
 
 
 class ContractParser:
@@ -92,8 +94,10 @@ class ContractParser:
             )
 
         # Parse based on format
-        if suffix == ".txt":
+        if suffix in {".txt", ".md"}:
             raw_text = self._read_txt(path)
+        elif suffix == ".pdf":
+            raw_text = self._read_pdf_text_or_ocr(path)
         else:
             # Parse with MinerU for PDF/DOCX
             try:
@@ -107,6 +111,8 @@ class ContractParser:
                     error_type="unknown",
                     original_exception=e,
                 )
+
+        raw_text = self._normalize_text(raw_text)
 
         # PII detection and redaction
         pii_matches = detect_pii(raw_text) if do_redact_pii else []
@@ -152,6 +158,101 @@ class ContractParser:
                 error_type="corrupted",
                 original_exception=e,
             )
+
+    def _read_pdf_text_or_ocr(self, path: Path) -> str:
+        """
+        Extract text from PDF text layer first. OCR only pages with too little text.
+        """
+        try:
+            import fitz  # PyMuPDF
+        except Exception as e:
+            raise ParseError(
+                "PyMuPDF is required for PDF parsing. Install pymupdf.",
+                file_path=str(path),
+                error_type="unsupported",
+                original_exception=e,
+            )
+
+        try:
+            doc = fitz.open(path)
+        except Exception as e:
+            raise ParseError(
+                f"Failed to open PDF: {str(e)}",
+                file_path=str(path),
+                error_type="corrupted",
+                original_exception=e,
+            )
+
+        parts: list[str] = []
+        try:
+            for page_index, page in enumerate(doc):
+                text = page.get_text("text").strip()
+                if len(text) >= CONTRACT_OCR_MIN_TEXT_CHARS:
+                    parts.append(text)
+                    continue
+
+                if page_index >= CONTRACT_OCR_MAX_PAGES:
+                    parts.append(text)
+                    continue
+
+                png_bytes = self._render_pdf_page_png(page)
+                parts.append(self._ocr_image_with_openai(png_bytes, page_index + 1))
+        finally:
+            doc.close()
+
+        return "\n\n".join(part for part in parts if part.strip())
+
+    def _render_pdf_page_png(self, page) -> bytes:
+        import fitz
+        matrix = fitz.Matrix(2, 2)
+        pix = page.get_pixmap(matrix=matrix, alpha=False)
+        return pix.tobytes("png")
+
+    def _ocr_image_with_openai(self, image_bytes: bytes, page_number: int) -> str:
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        if not api_key:
+            raise ParseError(
+                "OPENAI_API_KEY is required for OCR fallback",
+                error_type="ocr_failure",
+            )
+
+        from openai import OpenAI
+
+        image_b64 = base64.b64encode(image_bytes).decode("ascii")
+        base_url = (os.getenv("OPENAI_BASE_URL") or "").strip() or "https://api.openai.com/v1"
+        client = OpenAI(api_key=api_key, base_url=base_url)
+        response = client.chat.completions.create(
+            model=OPENAI_OCR_MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "OCR trang hợp đồng này sang Markdown/plain text tiếng Việt. "
+                                "Giữ thứ tự điều khoản, số điều, khoản, điểm. "
+                                "Chỉ trả về nội dung OCR, không giải thích."
+                            ),
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{image_b64}"},
+                        },
+                    ],
+                }
+            ],
+            temperature=0,
+        )
+        content = response.choices[0].message.content or ""
+        return f"\n\n<!-- OCR page {page_number} -->\n{content.strip()}"
+
+    def _normalize_text(self, text: str) -> str:
+        lines = [line.rstrip() for line in (text or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")]
+        normalized = "\n".join(lines)
+        while "\n\n\n" in normalized:
+            normalized = normalized.replace("\n\n\n", "\n\n")
+        return normalized.strip()
 
     def _run_mineru(self, path: Path) -> str:
         """
