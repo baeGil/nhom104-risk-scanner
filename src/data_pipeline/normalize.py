@@ -234,7 +234,7 @@ def _is_khong_so(text: str) -> bool:
 
 def main(
     metadata_path: str = "data/metadata.parquet",
-    output_path: str = "output/so_ky_hieu_lookup.json",
+    output_path: str = "data/so_ky_hieu_lookup.json",
 ) -> None:
     """
     T0.1 main: Đọc metadata.parquet, normalize, xuất lookup JSON.

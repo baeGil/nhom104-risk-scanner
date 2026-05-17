@@ -134,7 +134,7 @@ CONTENT_ENRICHED_PATH: str = _env("CONTENT_ENRICHED_PATH", "data/content_enriche
 CONTENT_CLEAN_PATH: str = _env("CONTENT_CLEAN_PATH", "data/content_clean.parquet")
 
 # Output files
-LOOKUP_PATH: str = _env("LOOKUP_PATH", "output/so_ky_hieu_lookup.json")
+LOOKUP_PATH: str = _env("LOOKUP_PATH", "data/so_ky_hieu_lookup.json")
 SCHEMA_PATH: str = _env("SCHEMA_PATH", "output/neo4j_schema.cypher")
 PIPELINE_CHECKPOINT: str = _env("PIPELINE_CHECKPOINT", "output/pipeline_checkpoint.json")
 

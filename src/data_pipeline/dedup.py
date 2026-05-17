@@ -156,7 +156,7 @@ def log_decisions(merge_log: list[dict], path: str | Path) -> None:
 
 def main(
     metadata_path: str  = "data/metadata.parquet",
-    lookup_path: str    = "output/so_ky_hieu_lookup.json",
+    lookup_path: str    = "data/so_ky_hieu_lookup.json",
     output_path: str    = "data/metadata_deduped.parquet",
     log_path: str       = "output/dedup_log.json",
 ) -> None:

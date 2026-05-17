@@ -30,7 +30,7 @@ def export_to_parquet():
         df = pd.DataFrame(segments)
         
         # Đường dẫn file output
-        output_path = "scratch/legal_segments_for_colab.parquet"
+        output_path = "data/legal_segments_for_colab.parquet"
         
         # Xuất ra Parquet (yêu cầu pyarrow hoặc fastparquet)
         logger.info(f"Đang ghi dữ liệu ra file: {output_path}...")

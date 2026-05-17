@@ -41,7 +41,7 @@ class SoKyHieuResolver:
 
     Usage
     -----
-        resolver = SoKyHieuResolver.from_json("output/so_ky_hieu_lookup.json")
+        resolver = SoKyHieuResolver.from_json("data/so_ky_hieu_lookup.json")
         doc_id, method, confidence = resolver.resolve("46/2014/NĐ-CP", "Nghị định")
 
     Parameters
