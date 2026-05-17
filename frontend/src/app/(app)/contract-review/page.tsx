@@ -697,20 +697,35 @@ export default function ContractReviewPage() {
               <div className="flex items-center gap-2 mb-3 pb-2 border-b border-fg/10 flex-shrink-0">
                 <FileText className="w-5 h-5 text-accent" strokeWidth={2.5} />
                 <h3 className="font-heading text-lg text-fg">Kết quả phân tích</h3>
-                <WobblyBadge variant="accent" className="ml-auto">{clauses.length} điều khoản</WobblyBadge>
               </div>
 
-              <div className="flex-1 overflow-auto space-y-4 pr-2">
+              <div className="flex-1 overflow-auto space-y-6 pr-2 pb-4">
                 {snapshotError && (
                   <div className="bg-yellow-50 border-2 border-yellow-300/60 p-3 font-body text-sm text-fg/80" style={{ borderRadius: "12px 4px 12px 4px" }}>
                     {snapshotError}
                   </div>
                 )}
 
+                {/* Dashboard / Summary */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-accent/10 border-2 border-accent/20 p-3 flex flex-col items-center justify-center text-center transition-all hover:bg-accent/20" style={{ borderRadius: "255px 15px 225px 15px / 15px 225px 15px 255px" }}>
+                    <span className="font-heading text-2xl text-accent">{clauses.filter(c => c.riskLevel === "high").length}</span>
+                    <span className="font-body text-xs text-accent">Rủi ro cao</span>
+                  </div>
+                  <div className="bg-yellow-100/50 border-2 border-yellow-500/20 p-3 flex flex-col items-center justify-center text-center transition-all hover:bg-yellow-100" style={{ borderRadius: "15px 225px 15px 255px / 255px 15px 225px 15px" }}>
+                    <span className="font-heading text-2xl text-yellow-600">{clauses.filter(c => c.riskLevel === "medium").length}</span>
+                    <span className="font-body text-xs text-yellow-600">Cần xem xét</span>
+                  </div>
+                  <div className="bg-green-100/50 border-2 border-green-500/20 p-3 flex flex-col items-center justify-center text-center transition-all hover:bg-green-100" style={{ borderRadius: "225px 15px 255px 15px / 15px 255px 15px 225px" }}>
+                    <span className="font-heading text-2xl text-green-600">{clauses.filter(c => c.riskLevel === "low").length}</span>
+                    <span className="font-body text-xs text-green-600">An toàn</span>
+                  </div>
+                </div>
+
                 {/* Violations / Risks Found */}
                 {compliance?.violations && compliance.violations.length > 0 && (
                   <div>
-                    <h4 className="font-heading text-lg text-accent mb-2 flex items-center gap-2">
+                    <h4 className="font-heading text-lg text-accent mb-2 flex items-center gap-2 mt-4">
                       <AlertTriangle className="w-5 h-5" />
                       {compliance.violations.length} rủi ro được tìm thấy
                     </h4>
@@ -719,21 +734,20 @@ export default function ContractReviewPage() {
                         <div
                           key={i}
                           className="bg-accent/10 border-2 border-accent/30 p-3 cursor-pointer hover:bg-accent/20 transition-colors"
-                          style={{ borderRadius: "12px 4px 12px 4px" }}
-                          onClick={() => setHighlightedClauseId(highlightedClauseId === v.contractClauseId ? null : v.contractClauseId || null)}
+                          style={{ borderRadius: "60px 4px 45px 4px / 4px 45px 4px 60px" }}
+                          onClick={() => {
+                            setHighlightedClauseId(highlightedClauseId === v.contractClauseId ? null : v.contractClauseId || null);
+                            if (v.contractClauseId && !expandedClauses.has(v.contractClauseId)) {
+                              toggleClause(v.contractClauseId);
+                            }
+                          }}
                         >
                           <div className="flex items-start gap-2">
                             <span className="font-heading text-accent text-sm flex-shrink-0 mt-0.5">#{i + 1}</span>
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <WobblyBadge variant="accent" className="text-xs">
-                                  {v.contractClauseType || v.clause}
-                                </WobblyBadge>
-                                <span className="font-body text-xs text-fg/50">Điều khoản hợp đồng</span>
-                              </div>
                               <h5 className="font-heading text-fg text-sm mb-1">{v.clause}</h5>
                               <p className="font-body text-sm text-fg/80">{v.description}</p>
-                              <p className="mt-1 font-body text-xs text-fg/50">{v.citation}</p>
+                              {v.citation && <p className="mt-1 font-body text-xs text-fg/50 italic">Nguồn: {v.citation}</p>}
                             </div>
                           </div>
                         </div>
@@ -742,73 +756,9 @@ export default function ContractReviewPage() {
                   </div>
                 )}
 
-                {/* Risks - Collapsible */}
-                {compliance?.risks && compliance.risks.length > 0 && (
-                  <div>
-                    <button
-                      className="w-full flex items-center gap-2 font-heading text-lg text-yellow-600 mb-2 hover:text-yellow-700 transition-colors"
-                      onClick={() => setExpandedRisks(!expandedRisks)}
-                    >
-                      <AlertTriangle className="w-5 h-5" />
-                      Cần xem xét ({compliance.risks.length})
-                      {expandedRisks ? <ChevronDown className="w-4 h-4 ml-auto" /> : <ChevronRight className="w-4 h-4 ml-auto" />}
-                    </button>
-                    <AnimatePresence>
-                      {expandedRisks && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="space-y-2">
-                            {compliance.risks.map((risk, i) => (
-                              <div key={i} className="bg-yellow-50 border-2 border-yellow-300/50 p-3 font-body text-sm text-fg/80" style={{ borderRadius: "12px 4px 12px 4px" }}>
-                                <span className="text-yellow-600 mr-2">⚠</span>{risk}
-                              </div>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
-
-                {/* Suggestions - Collapsible */}
-                {compliance?.suggestions && compliance.suggestions.length > 0 && (
-                  <div>
-                    <button
-                      className="w-full flex items-center gap-2 font-heading text-lg text-secondary mb-2 hover:text-secondary/80 transition-colors"
-                      onClick={() => setExpandedSuggestions(!expandedSuggestions)}
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                      Đề xuất ({compliance.suggestions.length})
-                      {expandedSuggestions ? <ChevronDown className="w-4 h-4 ml-auto" /> : <ChevronRight className="w-4 h-4 ml-auto" />}
-                    </button>
-                    <AnimatePresence>
-                      {expandedSuggestions && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="space-y-2">
-                            {compliance.suggestions.map((s, i) => (
-                              <div key={i} className="bg-blue-50 border-2 border-secondary/30 p-3 font-body text-sm text-fg/80" style={{ borderRadius: "12px 4px 12px 4px" }}>
-                                <span className="text-secondary mr-2">→</span>{s}
-                              </div>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
-
                 {/* Legal Documents Sources */}
                 {uniqueDocuments.length > 0 && (
-                  <div>
+                  <div className="mt-4">
                     <h4 className="font-heading text-lg text-fg mb-2 flex items-center gap-2">
                       <BookOpen className="w-5 h-5" />
                       Văn bản pháp luật tham chiếu ({uniqueDocuments.length})
@@ -818,7 +768,7 @@ export default function ContractReviewPage() {
                         <button
                           key={i}
                           className="w-full text-left bg-white border-2 border-fg/10 p-3 hover:border-secondary/50 hover:bg-secondary/5 transition-colors"
-                          style={{ borderRadius: "12px 4px 12px 4px" }}
+                          style={{ borderRadius: "60px 4px 45px 4px / 4px 45px 4px 60px" }}
                           onClick={() => loadDocumentContent(doc.title)}
                         >
                           <div className="flex items-center gap-2">
@@ -833,53 +783,101 @@ export default function ContractReviewPage() {
                 )}
 
                 {/* All Clauses */}
-                <div>
-                  <h4 className="font-heading text-lg text-fg mb-2 flex items-center gap-2">
+                <div className="mt-4">
+                  <h4 className="font-heading text-lg text-fg mb-3 flex items-center gap-2">
                     <FileText className="w-5 h-5" />
-                    Tất cả điều khoản
+                    Chi tiết từng điều khoản ({clauses.length})
                   </h4>
-                  <div className="space-y-2">
-                    {clauses.map((clause) => (
-                      <div
-                        key={clause.id}
-                        className={`border-2 p-3 cursor-pointer transition-all ${riskColor(clause.riskLevel)}`}
-                        style={{ borderRadius: "60px 4px 45px 4px / 4px 45px 4px 60px" }}
-                        onClick={() => toggleClause(clause.id)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            {expandedClauses.has(clause.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                            <span className="font-bold">{clause.type}</span>
-                            <WobblyBadge variant={clause.riskLevel === "low" ? "secondary" : clause.riskLevel === "medium" ? "postit" : "accent"}>
+                  <div className="space-y-3">
+                    {clauses.map((clause) => {
+                      const clauseViolations = compliance?.violations?.filter(v => v.contractClauseId === clause.id || v.contractClauseType === clause.type) || [];
+                      const matches = legalMatches.filter((match) => match.clauseId === clause.id).slice(0, 3);
+                      
+                      const words = clause.text.split(" ");
+                      const titleSnippet = words.slice(0, 15).join(" ") + (words.length > 15 ? "..." : "");
+
+                      return (
+                        <div
+                          key={clause.id}
+                          className={`border-2 p-3 cursor-pointer transition-all ${riskColor(clause.riskLevel)}`}
+                          style={{ borderRadius: "60px 4px 45px 4px / 4px 45px 4px 60px" }}
+                          onClick={() => toggleClause(clause.id)}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              {expandedClauses.has(clause.id) ? <ChevronDown className="w-4 h-4 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 flex-shrink-0" />}
+                              <span className="font-body text-sm font-semibold flex-1 truncate">{titleSnippet}</span>
+                            </div>
+                            <WobblyBadge variant={clause.riskLevel === "low" ? "secondary" : clause.riskLevel === "medium" ? "postit" : "accent"} className="flex-shrink-0">
                               {clause.riskLevel === "low" ? "Thấp" : clause.riskLevel === "medium" ? "Trung bình" : "Cao"}
                             </WobblyBadge>
                           </div>
-                        </div>
-                        <AnimatePresence>
-                          {expandedClauses.has(clause.id) && (
-                            <motion.div className="mt-2 space-y-3 text-sm" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
-                              <p>{clause.text}</p>
-                              {legalMatches.filter((match) => match.clauseId === clause.id).length > 0 && (
-                                <div className="space-y-2">
-                                  {legalMatches.filter((match) => match.clauseId === clause.id).slice(0, 5).map((match) => (
-                                    <div key={match.uid} className="bg-white/70 border border-fg/10 p-2" style={{ borderRadius: "8px" }}>
-                                      <div className="flex items-center gap-2">
-                                        <WobblyBadge variant="secondary">{match.segmentType}</WobblyBadge>
-                                        <span className="font-body text-xs text-fg/70">{match.citation}</span>
-                                      </div>
-                                      <div className="mt-1 flex items-center gap-2 font-body text-[11px] text-fg/50">
-                                        <span>score {match.score.toFixed(3)}</span>
-                                        {match.validitySignal !== "latest_known" && <span>{match.validitySignal}</span>}
-                                      </div>
-                                    </div>
-                                  ))}
+                          
+                          <AnimatePresence>
+                            {expandedClauses.has(clause.id) && (
+                              <motion.div className="mt-3 pt-3 border-t border-current/20 space-y-4 text-sm cursor-default" onClick={(e) => e.stopPropagation()} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+                                
+                                {/* 1. Nội dung chi tiết */}
+                                <div>
+                                  <h5 className="font-heading text-xs uppercase tracking-wider opacity-70 mb-1">Nội dung hợp đồng</h5>
+                                  <p className="font-body opacity-90 leading-relaxed bg-white/50 p-3 border border-current/10 whitespace-pre-wrap" style={{ borderRadius: "60px 4px 45px 4px / 4px 45px 4px 60px" }}>{clause.text}</p>
                                 </div>
-                              )}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    ))}
+
+                                {/* 2. Phân tích rủi ro */}
+                                {(clauseViolations.length > 0 || clause.riskLevel !== "low") && (
+                                  <div>
+                                    <h5 className={`font-heading text-xs uppercase tracking-wider mb-2 flex items-center gap-1 ${clause.riskLevel === "high" ? "text-accent" : "text-yellow-700"}`}>
+                                      <AlertTriangle className="w-4 h-4" /> Cảnh báo rủi ro
+                                    </h5>
+                                    {clauseViolations.length > 0 ? (
+                                      <div className="space-y-2">
+                                        {clauseViolations.map((v, i) => (
+                                          <div key={i} className="bg-white/60 p-3 font-body text-sm border border-current/10" style={{ borderRadius: "30px 4px 25px 4px / 4px 25px 4px 30px" }}>
+                                            <span className="font-semibold">{v.description}</span>
+                                            {v.citation && <p className="text-xs mt-1.5 pt-1.5 border-t border-current/10 opacity-80">Nguồn đối chiếu: <span className="font-semibold">{v.citation}</span></p>}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="bg-white/60 p-3 font-body text-sm border border-current/10" style={{ borderRadius: "30px 4px 25px 4px / 4px 25px 4px 30px" }}>
+                                        {clause.riskLevel === "high" ? "Điều khoản này chứa rủi ro cao hoặc có dấu hiệu vi phạm quy định pháp luật." : "Điều khoản này cần được xem xét lại để tránh bất lợi."}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* 3. Gợi ý sửa đổi & Citations */}
+
+                                {(matches.length > 0) && (
+                                  <div>
+                                    <h5 className="font-heading text-xs uppercase tracking-wider opacity-70 mb-2 flex items-center gap-1">
+                                      <CheckCircle className="w-3 h-3" /> Gợi ý & Căn cứ pháp lý
+                                    </h5>
+                                    <div className="space-y-2">
+                                      {matches.map((match) => (
+                                        <div key={match.uid} className="bg-white/70 border border-fg/10 p-2" style={{ borderRadius: "30px 4px 25px 4px / 4px 25px 4px 30px" }}>
+                                          <div className="flex items-start gap-2">
+                                            <WobblyBadge variant="secondary" className="mt-0.5 whitespace-nowrap">{match.segmentType}</WobblyBadge>
+                                            <div className="flex-1 min-w-0">
+                                              <span className="font-body font-semibold text-xs text-fg block truncate" title={match.citation}>{match.citation}</span>
+                                              <p className="font-body text-xs text-fg/70 mt-1 line-clamp-2" title={match.text}>{match.text}</p>
+                                            </div>
+                                          </div>
+                                          <div className="mt-1.5 flex items-center gap-2 font-body text-[10px] text-fg/40 uppercase tracking-wider">
+                                            <span>Độ khớp: {(match.score * 100).toFixed(1)}%</span>
+                                            {match.validitySignal !== "latest_known" && <span>• {match.validitySignal}</span>}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

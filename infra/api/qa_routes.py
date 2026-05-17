@@ -28,17 +28,41 @@ router = APIRouter()
 
 def _chunk_to_provisions(answer: dict) -> list[dict]:
     provisions = []
+    verified_map = {}
+    cited_uids = set()
+    for citation in answer.get("citations", []) or []:
+        uid = citation.get("uid")
+        if uid:
+            cited_uids.add(uid)
+            is_verified = bool(citation.get("verified"))
+            reason = citation.get("reason", "")
+            if uid not in verified_map or is_verified:
+                verified_map[uid] = {
+                    "verified": is_verified,
+                    "reason": reason
+                }
+
     for provision in answer.get("retrieved_provisions", []) or []:
+        uid = provision.get("uid", "")
+        # Chỉ giữ lại điều khoản thực sự được LLM sử dụng/trích dẫn
+        if uid not in cited_uids:
+            continue
+
         display = provision.get("display_citation") or provision.get("article_title") or provision.get("uid", "")
         article_number = provision.get("article_index")
         if article_number is None:
             article_number = provision.get("article") or ""
+            
+        is_verified = bool(provision.get("validity", {}).get("status") == "verified")
+        if uid in verified_map:
+            is_verified = is_verified or verified_map[uid]["verified"]
+
         provisions.append(
             {
                 "documentName": provision.get("document_title", ""),
                 "articleNumber": f"Điều {article_number}" if article_number not in ("", None) else "",
                 "text": provision.get("effective_text") or provision.get("text", ""),
-                "verified": bool(provision.get("validity", {}).get("status") == "verified"),
+                "verified": is_verified,
                 "citation": display,
             }
         )
@@ -60,15 +84,42 @@ def _intent_chunks(answer: dict) -> list[dict]:
 
 def _chunk_to_citations(answer: dict) -> list[dict]:
     citations = []
+    verified_map = {}
+    cited_uids = set()
+    for citation in answer.get("citations", []) or []:
+        uid = citation.get("uid")
+        if uid:
+            cited_uids.add(uid)
+            is_verified = bool(citation.get("verified"))
+            reason = citation.get("reason", "")
+            if uid not in verified_map or is_verified:
+                verified_map[uid] = {
+                    "verified": is_verified,
+                    "reason": reason
+                }
+
     for provision in answer.get("retrieved_provisions", []) or []:
+        uid = provision.get("uid", "")
+        # Chỉ giữ lại trích dẫn thực sự được LLM sử dụng/trích dẫn
+        if uid not in cited_uids:
+            continue
+
         validity = provision.get("validity") or {}
         display = provision.get("display_citation") or provision.get("article_title") or provision.get("uid", "")
+        
+        is_verified = bool(validity.get("status") == "verified")
+        reason = validity.get("reason", "")
+        if uid in verified_map:
+            is_verified = is_verified or verified_map[uid]["verified"]
+            if verified_map[uid]["reason"]:
+                reason = verified_map[uid]["reason"]
+
         citations.append(
             {
                 "displayText": display,
-                "uid": provision.get("uid", ""),
-                "verified": bool(validity.get("status") == "verified"),
-                "reason": validity.get("reason", ""),
+                "uid": uid,
+                "verified": is_verified,
+                "reason": reason,
                 "documentTitle": provision.get("document_title", ""),
             }
         )
