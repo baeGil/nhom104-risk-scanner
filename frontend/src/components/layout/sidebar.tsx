@@ -279,7 +279,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     collapsed ? "justify-center px-0" : "px-4 gap-3",
                     isActive ? "bg-fg text-white" : "text-fg hover:bg-muted"
                   )}
-                  style={{ borderRadius: (href === "/legal-qa" || href === "/contract-review") && !collapsed ? "8px 0 0 8px" : "8px" }}
+                  style={{
+                    borderRadius:
+                      (href === "/legal-qa" || href === "/contract-review") && !collapsed
+                        ? "255px 15px 15px 255px / 15px 225px 225px 15px"
+                        : "255px 15px 225px 15px / 15px 225px 15px 255px",
+                  }}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" strokeWidth={2.5} />
                   <span
@@ -299,7 +304,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       "flex w-10 items-center justify-center transition-colors duration-300",
                       isActive ? "bg-fg text-white" : "text-fg hover:bg-muted"
                     )}
-                    style={{ borderRadius: "0 8px 8px 0" }}
+                    style={{ borderRadius: "15px 255px 255px 15px / 225px 15px 15px 225px" }}
                     aria-label={showContractHistory ? "Ẩn lịch sử rà soát" : "Hiện lịch sử rà soát"}
                   >
                     {showContractHistory ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -313,7 +318,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       "flex w-10 items-center justify-center transition-colors duration-300",
                       isActive ? "bg-fg text-white" : "text-fg hover:bg-muted"
                     )}
-                    style={{ borderRadius: "0 8px 8px 0" }}
+                    style={{ borderRadius: "15px 255px 255px 15px / 225px 15px 15px 225px" }}
                     aria-label={showQaHistory ? "Ẩn lịch sử hỏi đáp" : "Hiện lịch sử hỏi đáp"}
                   >
                     {showQaHistory ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -347,7 +352,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               collapsed ? "justify-center px-0" : "px-4 gap-3",
               "text-fg/60 hover:text-accent hover:bg-muted/50"
             )}
-            style={{ borderRadius: "8px" }}
+            style={{ borderRadius: "255px 15px 225px 15px / 15px 225px 15px 255px" }}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" strokeWidth={2.5} />
             <span
