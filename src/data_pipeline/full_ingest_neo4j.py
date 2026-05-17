@@ -66,15 +66,24 @@ def run_unified_pipeline():
     parser = LegalDocumentParser()
     writer = SegmentWriter(driver)
     
-    logger.info("Đọc data_updated_with_ids.json...")
+    logger.info("Đọc chu_de_lao_dong_schema_with_ids.json...")
     target_docs = set()
-    with open("data_updated_with_ids.json", "r", encoding="utf-8") as f:
+    # Khối cũ đọc từ data_updated_with_ids.json được giữ lại để tham chiếu:
+    # with open("data_updated_with_ids.json", "r", encoding="utf-8") as f:
+    #     data = json.load(f)
+    #     for cat in data:
+    #         for doc in cat.get("van_ban", []):
+    #             doc_id = doc.get("doc_id")
+    #             if doc_id:
+    #                 target_docs.add(str(doc_id))
+    #
+    # Schema mới là list phẳng, mỗi item có trực tiếp `doc_id`.
+    with open("chu_de_lao_dong_schema_with_ids.json", "r", encoding="utf-8") as f:
         data = json.load(f)
-        for cat in data:
-            for doc in cat.get("van_ban", []):
-                doc_id = doc.get("doc_id")
-                if doc_id:
-                    target_docs.add(str(doc_id))
+        for doc in data:
+            doc_id = doc.get("doc_id")
+            if doc_id:
+                target_docs.add(str(doc_id))
     
     logger.info(f"Tổng số văn bản mục tiêu cần nạp từ JSON: {len(target_docs)}")
     

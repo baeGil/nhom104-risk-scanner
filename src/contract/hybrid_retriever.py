@@ -14,6 +14,7 @@ from typing import Any, Optional
 from neo4j import GraphDatabase
 
 from src.config import NEO4J_TIMEOUT, NEO4J_URI, neo4j_auth
+from src.config import EMBED_QUERY_INSTRUCTION
 from src.contract.mock_bridge import EmbeddingService, create_embedding_service
 from src.contract.query_rewriter import LegalRetrievalPlan
 from src.data_pipeline.legal_segment_index import (
@@ -116,7 +117,8 @@ class LegalHybridRetriever:
     async def _add_vector_candidates_batch(self, candidates: dict[str, LegalCandidate], queries: list[str]) -> None:
         """Add vector candidates for multiple queries in batch."""
         try:
-            embeddings = await self._embedding_service.embed_batch(queries)
+            formatted_queries = [self._format_query(query) for query in queries]
+            embeddings = await self._embedding_service.embed_batch(formatted_queries)
         except Exception:
             return
 
@@ -127,7 +129,7 @@ class LegalHybridRetriever:
         ORDER BY score DESC
         """
         with self._driver.session(default_access_mode="READ", database="neo4j") as session:
-            for query, embedding in zip(queries, embeddings):
+            for embedding in embeddings:
                 try:
                     rows = session.run(
                         cypher,
@@ -147,9 +149,16 @@ class LegalHybridRetriever:
                         candidate.sources.add("vector")
                         candidates[candidate.uid] = candidate
 
+    def _format_query(self, query: str) -> str:
+        """Format semantic search queries for Harrier-style instruction tuning."""
+        cleaned = (query or "").strip()
+        if not cleaned or cleaned.startswith("Instruct:"):
+            return cleaned
+        return f"Instruct: {EMBED_QUERY_INSTRUCTION}\nQuery: {cleaned}"
+
     async def _add_vector_candidates(self, candidates: dict[str, LegalCandidate], query: str) -> None:
         try:
-            embedding = await self._embedding_service.embed(query)
+            embedding = await self._embedding_service.embed(self._format_query(query))
         except Exception:
             return
 
