@@ -2,47 +2,85 @@ import asyncio
 import json
 import os
 import pandas as pd
-import httpx
+from openai import AsyncOpenAI
 from tqdm.asyncio import tqdm
-from src.config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL
+from src.config import OPENAI_API_KEY
+
+MODEL = "gpt-5.4-nano"
+PROCESSED_CHECKPOINT_PATH = "data/extracted_relations_batched_processed_uids.json"
 
 # Prompt template for batch processing
-SYSTEM_PROMPT = """Bạn là chuyên gia phân tích văn bản pháp luật Việt Nam. Nhiệm vụ của bạn là trích xuất các mối quan hệ pháp luật từ DANH SÁCH các đoạn văn bản được cung cấp bên dưới.
+SYSTEM_PROMPT = """Bạn là chuyên gia phân tích văn bản pháp luật Việt Nam. Nhiệm vụ của bạn là trích xuất quan hệ pháp luật từ DANH SÁCH các đoạn văn bản được cung cấp.
 
-Có 3 loại quan hệ cần trích xuất:
-1. internal: Dẫn chiếu nội bộ trong cùng một văn bản (ví dụ: "Điều 10 Luật này", "Khoản 1 Điều này", "Nghị định này"). 
-   - target_doc: Ghi là "luật này", "nghị định này", hoặc "thông tư này".
-2. external: Dẫn chiếu đến văn bản khác (ví dụ: "Điều 10 Luật Xử lý vi phạm hành chính", "Nghị định số 46/2016/NĐ-CP").
-   - target_doc: Ghi tên hoặc số hiệu văn bản cụ thể.
-3. modify: Các quan hệ sửa đổi, bổ sung, thay thế hoặc bãi bỏ văn bản khác. 
-   - Chỉ lấy quan hệ CHỦ ĐỘNG (ví dụ: "Điều 1 bổ sung Điều 2" -> lấy; "Điều 1 được bổ sung bởi Điều 2" -> KHÔNG lấy).
-   - relationship_type: Ghi là "modify".
+Bạn phải phân loại mỗi quan hệ vào đúng 1 trong 3 nhóm:
 
-QUY TẮC TÁCH: 
-Nếu một câu dẫn chiếu đến nhiều đối tượng (ví dụ: "Khoản 1, Khoản 2 Điều 10"), bạn PHẢI tách thành các block riêng biệt.
+1. internal
+- Dẫn chiếu đến điểm, khoản, điều hoặc toàn bộ văn bản trong CÙNG văn bản nguồn.
+- Dấu hiệu thường gặp: "Điều này", "Khoản này", "Điểm này", "Luật này", "Bộ luật này", "Nghị định này", "Thông tư này", "Điều 1 của Luật này", "điểm a khoản 1 Điều 37a của Luật này".
+- target_doc phải là một trong các cụm nội bộ xuất hiện hoặc được suy ra: "luật này", "bộ luật này", "nghị định này", "thông tư này", "văn bản này".
+- target_article là số/ký hiệu điều, ví dụ "1", "37a". Nếu chỉ nói "Điều này" và source_uid có dạng doc_X_dieu_37a... thì target_article là "37a".
+- target_clause là số khoản, ví dụ "1", "2". Nếu không có khoản thì null.
+- target_diem là chữ điểm, ví dụ "a", "b", "đ". Nếu không có điểm thì null.
+- Không bao giờ ghi "luật này", "nghị định này", "thông tư này" vào target_clause hoặc target_diem.
 
-QUY TẮC BATCH:
-Tôi sẽ cung cấp danh sách các đoạn văn bản, mỗi đoạn có một ID (source_uid).
-Bạn phải trả về một MẢNG JSON duy nhất chứa tất cả các quan hệ tìm thấy trong tất cả các đoạn.
-Mỗi object trong mảng phải có cấu trúc:
+2. external
+- Dẫn chiếu đến văn bản KHÁC.
+- target_doc có thể là số hiệu hoặc tên văn bản, ví dụ "12/2022/NĐ-CP", "Bộ luật Lao động", "Luật Xử lý vi phạm hành chính", "Nghị định 46/2016/NĐ-CP".
+- Nếu câu chỉ nêu tên văn bản mà không có số hiệu, vẫn phải trích xuất. Ví dụ "theo Bộ luật Lao động" => target_doc là "Bộ luật Lao động".
+- Nếu có điều/khoản/điểm của văn bản ngoài thì điền target_article, target_clause, target_diem; nếu không có thì để null.
+
+3. modify
+- Quan hệ mà đoạn nguồn CHỦ ĐỘNG sửa đổi, bổ sung, thay thế, bãi bỏ, đình chỉ, ngưng hiệu lực hoặc làm hết hiệu lực một phần/toàn bộ văn bản khác.
+- relationship_type luôn là "modify".
+- modify_action phải là một trong:
+  "sua_doi" cho sửa đổi;
+  "bo_sung" cho bổ sung;
+  "thay_the" cho thay thế;
+  "bai_bo" cho bãi bỏ;
+  "dinh_chi" cho đình chỉ;
+  "ngung_hieu_luc" cho ngưng hiệu lực;
+  "het_hieu_luc" cho hết hiệu lực.
+- Chỉ lấy quan hệ chủ động. Ví dụ: "Sửa đổi Điều 5 của Nghị định 12/2022/NĐ-CP" thì lấy. "Điều 5 được sửa đổi bởi Nghị định 99/2024/NĐ-CP" thì không lấy nếu đoạn nguồn chỉ đang mô tả văn bản bị sửa.
+- Với internal và external, modify_action luôn là null.
+
+QUY TẮC TÁCH NHIỀU ĐỐI TƯỢNG:
+- Nếu một câu dẫn chiếu đến nhiều đối tượng, phải tạo nhiều object riêng biệt.
+- Ví dụ "khoản 1, khoản 2 Điều 10" => 2 object: khoản 1 Điều 10 và khoản 2 Điều 10.
+- Ví dụ "các điểm a, b, c, đ, e, h, i, k, l, m và n khoản 1 Điều 37a của Luật này" => tạo từng object riêng:
+  điểm a khoản 1 Điều 37a;
+  điểm b khoản 1 Điều 37a;
+  điểm c khoản 1 Điều 37a;
+  điểm đ khoản 1 Điều 37a;
+  tiếp tục cho từng điểm còn lại.
+- Khi nhiều điểm/khoản dùng chung điều hoặc văn bản phía sau, phải copy phần chung đó vào từng object.
+
+QUY TẮC SUY LUẬN TỪ source_uid:
+- source_uid có thể chứa vị trí nguồn, ví dụ "doc_123_dieu_37a_khoan_1_diem_a".
+- Nếu văn bản nói "Điều này", dùng điều trong source_uid làm target_article.
+- Nếu văn bản nói "Khoản này", dùng khoản trong source_uid làm target_clause và điều trong source_uid làm target_article.
+- Nếu văn bản nói "Điểm này", dùng điểm/khoản/điều trong source_uid làm target_diem, target_clause, target_article.
+- Nếu không thể suy luận chắc chắn thì để field tương ứng là null, không bịa.
+
+Mỗi object trong mảng JSON phải có đúng cấu trúc:
 {
   "source_uid": "ID của đoạn văn bản chứa quan hệ này",
-  "target_doc": "tên/số hiệu văn bản hoặc 'luật này'...",
-  "target_article": "số điều",
-  "target_clause": "số khoản",
-  "target_diem": "tên điểm",
-  "relationship_type": "internal" | "external" | "modify"
+  "target_doc": "tên/số hiệu văn bản hoặc 'luật này'/'nghị định này'/...",
+  "target_article": "số điều hoặc null",
+  "target_clause": "số khoản hoặc null",
+  "target_diem": "tên điểm hoặc null",
+  "relationship_type": "internal" | "external" | "modify",
+  "modify_action": "sua_doi" | "bo_sung" | "thay_the" | "bai_bo" | "dinh_chi" | "ngung_hieu_luc" | "het_hieu_luc" | null
 }
 
-Chỉ trả về JSON array, không giải thích gì thêm."""
+QUY TẮC BATCH:
+- Tôi cung cấp danh sách đoạn văn bản, mỗi đoạn có một source_uid.
+- Trả về một MẢNG JSON duy nhất chứa tất cả quan hệ tìm thấy trong tất cả đoạn.
+- Mỗi object phải dùng đúng source_uid của đoạn chứa quan hệ.
+- Nếu không tìm thấy quan hệ nào, trả về [].
+- Chỉ trả về JSON array hợp lệ, không giải thích, không markdown, không code fence."""
 
-async def process_batch(http_client, batch_segments):
+async def process_batch(client, batch_segments):
     """Xử lý một batch các đoạn văn bản."""
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
     # Ghép các đoạn văn bản lại thành 1 prompt
     formatted_texts = []
     for i, seg in enumerate(batch_segments):
@@ -50,29 +88,30 @@ async def process_batch(http_client, batch_segments):
     
     combined_text = "\n\n".join(formatted_texts)
     
-    data = {
-        "model": OPENAI_MODEL,
-        "messages": [
-            {"role": "system", "content": "Bạn là chuyên gia pháp luật. Trả về duy nhất 1 JSON array chứa các quan hệ trích xuất được. Mỗi quan hệ phải có source_uid chính xác."},
-            {"role": "user", "content": f"{SYSTEM_PROMPT}\n\nDANH SÁCH VĂN BẢN:\n{combined_text}"}
-        ],
-        "temperature": 0.0
-    }
-    
-    url = f"{OPENAI_BASE_URL}/chat/completions" if OPENAI_BASE_URL else "https://api.openai.com/v1/chat/completions"
-
     for attempt in range(3):
         try:
-            response = await http_client.post(url, headers=headers, json=data, timeout=60.0)
-            response.raise_for_status()
-            
-            resp_json = response.json()
-            content = resp_json['choices'][0]['message']['content'].strip()
-            usage = resp_json.get('usage', {})
+            response = await client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Bạn là chuyên gia pháp luật. Trả về duy nhất 1 JSON array chứa các quan hệ trích xuất được. Mỗi quan hệ phải có source_uid chính xác.",
+                    },
+                    {
+                        "role": "user",
+                        "content": f"{SYSTEM_PROMPT}\n\nDANH SÁCH VĂN BẢN:\n{combined_text}",
+                    },
+                ],
+                temperature=0.0,
+                timeout=60.0,
+            )
+
+            content = response.choices[0].message.content.strip()
+            usage = response.usage
             
             # Log tokens
-            in_tokens = usage.get('prompt_tokens', 0)
-            out_tokens = usage.get('completion_tokens', 0)
+            in_tokens = usage.prompt_tokens if usage else 0
+            out_tokens = usage.completion_tokens if usage else 0
             # print(f"  [Batch] In: {in_tokens}, Out: {out_tokens}")
             
             # Xử lý markdown code blocks
@@ -124,9 +163,9 @@ def create_batches_by_chars(segments, max_chars=4000):
 
 async def main():
     # Load data
-    input_path = 'scratch/legal_segments_for_colab.parquet'
+    input_path = 'data/legal_segments_for_colab.parquet'
     if not os.path.exists(input_path):
-        input_path = '../../scratch/legal_segments_for_colab.parquet'
+        input_path = '../../data/legal_segments_for_colab.parquet'
     
     if not os.path.exists(input_path):
         print(f"Error: File {input_path} not found.")
@@ -136,7 +175,7 @@ async def main():
     all_segments = df.to_dict('records')
     
     # --- Checkpoint / Resume Logic ---
-    output_dir = 'scratch' if os.path.exists('scratch') else '../../data'
+    output_dir = 'data' if os.path.exists('data') else '../../data'
     output_path = os.path.join(output_dir, 'extracted_relations_batched.json')
     
     all_results = []
@@ -151,12 +190,22 @@ async def main():
         except Exception as e:
             print(f"Warning: Could not load existing results: {e}")
             all_results = []
+
+    if os.path.exists(PROCESSED_CHECKPOINT_PATH):
+        try:
+            with open(PROCESSED_CHECKPOINT_PATH, "r", encoding="utf-8") as f:
+                processed_checkpoint = json.load(f)
+                if isinstance(processed_checkpoint, list):
+                    processed_uids.update(str(uid) for uid in processed_checkpoint if uid)
+                    print(f"Loaded checkpoint for {len(processed_checkpoint)} processed segments.")
+        except Exception as e:
+            print(f"Warning: Could not load processed checkpoint: {e}")
     
     # Lọc những segments chưa được xử lý
     segments_to_process = [s for s in all_segments if s['uid'] not in processed_uids]
     
     # GIỚI HẠN XỬ LÝ CHO MỖI LẦN CHẠY (Ví dụ chia làm 3 lần cho 7000 segment)
-    CHUNK_SIZE = 2350
+    CHUNK_SIZE = 2000
     
     if not segments_to_process:
         print("✅ All segments already processed!")
@@ -172,23 +221,27 @@ async def main():
     total_in_tokens = 0
     total_out_tokens = 0
     new_results = []
+    newly_processed_uids = []
     
-    async with httpx.AsyncClient() as http_client:
+    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    async with client:
         MAX_CONCURRENT = 3
         sem = asyncio.Semaphore(MAX_CONCURRENT)
 
         async def batch_task(batch):
             async with sem:
-                res, in_t, out_t = await process_batch(http_client, batch)
-                return res, in_t, out_t
+                res, in_t, out_t = await process_batch(client, batch)
+                batch_uids = [seg["uid"] for seg in batch if seg.get("uid")]
+                return res, in_t, out_t, batch_uids
 
         tasks = [batch_task(b) for b in batches]
         
         for f in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
-            batch_res, in_t, out_t = await f
+            batch_res, in_t, out_t, batch_uids = await f
             new_results.extend(batch_res)
             total_in_tokens += in_t
             total_out_tokens += out_t
+            newly_processed_uids.extend(batch_uids)
 
     # Gộp kết quả mới vào kết quả cũ
     all_results.extend(new_results)
@@ -196,6 +249,11 @@ async def main():
     # Lưu lại
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(all_results, f, ensure_ascii=False, indent=2)
+
+    # Lưu checkpoint riêng để các segment không sinh ra relation cũng không bị chạy lại
+    processed_uids.update(newly_processed_uids)
+    with open(PROCESSED_CHECKPOINT_PATH, "w", encoding="utf-8") as f:
+        json.dump(sorted(processed_uids), f, ensure_ascii=False, indent=2)
     
     print(f"\n✅ Chunk complete!")
     print(f"New relationships found: {len(new_results)}")

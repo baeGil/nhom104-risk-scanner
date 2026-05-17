@@ -1,39 +1,52 @@
-import pandas as pd
-import os
 import json
-import time
 import logging
+import os
 import sys
+import time
+
+import pandas as pd
 
 # Thêm thư mục gốc vào path để import được crawler
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scripts.crawl_thuvienphapluat import ThuVienPhapLuatCrawler
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def build_targets(schema_items):
+    """Chuyển schema phẳng thành danh sách target chuẩn để xử lý."""
+    targets = []
+    for doc in schema_items:
+        doc_id = doc.get("doc_id")
+        if not doc_id:
+            continue
+
+        targets.append(
+            {
+                "id": str(doc_id),
+                "so_ky_hieu": doc.get("so_ky_hieu"),
+                "title": doc.get("title", ""),
+                "loai_van_ban": doc.get("loai_van_ban", ""),
+                "match_method": doc.get("match_method", ""),
+            }
+        )
+    return targets
+
 
 def find_and_fill_missing_content():
     JSON_INPUT = "chu_de_lao_dong_schema_with_ids.json"
     CONTENT_PARQUET = "data/content_clean.parquet"
-    
+
     if not os.path.exists(JSON_INPUT):
         logger.error(f"❌ Input JSON không tìm thấy: {JSON_INPUT}")
         return
 
     logger.info(f"📖 Đang đọc danh sách văn bản mục tiêu từ {JSON_INPUT}...")
     with open(JSON_INPUT, "r", encoding="utf-8") as f:
-        categories = json.load(f)
-    
-    targets = []
-    for cat in categories:
-        for doc in cat.get("van_ban", []):
-            if doc.get("doc_id") and doc.get("so_hieu"):
-                targets.append({
-                    "id": str(doc["doc_id"]),
-                    "so_ky_hieu": doc["so_hieu"],
-                    "ten": doc.get("ten", "")
-                })
-    
+        schema_items = json.load(f)
+
+    targets = build_targets(schema_items)
     logger.info(f"📊 Tổng số văn bản mục tiêu từ JSON: {len(targets)}")
 
     if not os.path.exists(CONTENT_PARQUET):
@@ -44,60 +57,75 @@ def find_and_fill_missing_content():
         content_df = pd.read_parquet(CONTENT_PARQUET)
         content_df["id"] = content_df["id"].astype(str)
 
-    # Tìm các văn bản bị thiếu hoặc nội dung quá ngắn
-    existing_ids = set(content_df["id"].tolist())
-    
+    existing_ids = set(content_df["id"].tolist()) if not content_df.empty else set()
+
     short_content_ids = set()
-    if not content_df.empty:
-        # Lọc các id có độ dài html < 500
-        short_content_ids = set(content_df[content_df["clean_html"].str.len() < 500]["id"].tolist())
+    if not content_df.empty and "clean_html" in content_df.columns:
+        short_content_ids = set(
+            content_df[content_df["clean_html"].fillna("").str.len() < 500]["id"].tolist()
+        )
 
     missing_targets = []
     for t in targets:
         if t["id"] not in existing_ids or t["id"] in short_content_ids:
             missing_targets.append(t)
 
-    logger.info(f"🎯 Tìm thấy {len(missing_targets)} văn bản bị thiếu hoặc nội dung ngắn (< 500 ký tự).")
+    logger.info(
+        f"🎯 Tìm thấy {len(missing_targets)} văn bản bị thiếu hoặc nội dung ngắn (< 500 ký tự)."
+    )
 
     if not missing_targets:
         logger.info("✅ Không có nội dung nào bị thiếu. Hệ thống đã đầy đủ!")
         return
 
-    # Bắt đầu crawl
     crawler = ThuVienPhapLuatCrawler()
     new_contents = []
-    
+
     try:
         for i, target in enumerate(missing_targets):
-            logger.info(f"[{i+1}/{len(missing_targets)}] Đang xử lý: {target['ten']} ({target['so_ky_hieu']})")
-            
-            # Tìm kiếm URL
-            urls = crawler.search_documents(target["so_ky_hieu"])
+            display_name = target["title"] or target["so_ky_hieu"] or target["id"]
+            logger.info(
+                f"[{i+1}/{len(missing_targets)}] Đang xử lý: {display_name} "
+                f"({target.get('so_ky_hieu') or 'none'})"
+            )
+
+            search_terms = []
+            if target.get("so_ky_hieu"):
+                search_terms.append(target["so_ky_hieu"])
+            if target.get("title"):
+                search_terms.append(target["title"])
+
+            urls = []
+            for term in search_terms:
+                urls = crawler.search_documents(term)
+                if urls:
+                    logger.info(f"  ✅ Tìm thấy URL bằng từ khóa: {term}")
+                    break
+
             if not urls:
-                logger.warning(f"  ❌ Không tìm thấy URL cho số hiệu {target['so_ky_hieu']}")
+                logger.warning(f"  ❌ Không tìm thấy URL cho văn bản: {display_name}")
                 continue
-                
-            # Lấy URL đầu tiên
+
             url = urls[0]
             if not url.startswith("http"):
                 url = "https://thuvienphapluat.vn" + url
-                
+
             html = crawler.scrape_content_only(url)
-            
+
             if html and len(html) > 500:
                 new_contents.append({"id": target["id"], "clean_html": html})
                 logger.info(f"  ✅ Đã lấy được nội dung ({len(html)} ký tự)")
             else:
-                logger.warning(f"  ⚠️ Nội dung lấy về vẫn quá ngắn hoặc rỗng cho {target['so_ky_hieu']}")
-            
-            # Chờ 2 giây sau mỗi văn bản theo yêu cầu
+                logger.warning(f"  ⚠️ Nội dung lấy về vẫn quá ngắn hoặc rỗng cho {display_name}")
+
             time.sleep(2)
-            
-            # Lưu checkpoint mỗi 10 văn bản để tránh mất dữ liệu nếu crash
+
             if (i + 1) % 10 == 0 and new_contents:
                 logger.info(f"💾 Đang lưu checkpoint vào {CONTENT_PARQUET}...")
                 new_df = pd.DataFrame(new_contents)
-                content_df = pd.concat([content_df, new_df]).drop_duplicates(subset=["id"], keep="last")
+                content_df = pd.concat([content_df, new_df]).drop_duplicates(
+                    subset=["id"], keep="last"
+                )
                 content_df.to_parquet(CONTENT_PARQUET, index=False)
                 new_contents = []
 
@@ -109,10 +137,12 @@ def find_and_fill_missing_content():
         if new_contents:
             logger.info(f"💾 Đang lưu kết quả cuối cùng vào {CONTENT_PARQUET}...")
             new_df = pd.DataFrame(new_contents)
-            content_df = pd.concat([content_df, new_df]).drop_duplicates(subset=["id"], keep="last")
+            content_df = pd.concat([content_df, new_df]).drop_duplicates(
+                subset=["id"], keep="last"
+            )
             content_df.to_parquet(CONTENT_PARQUET, index=False)
             logger.info(f"✅ Đã cập nhật {CONTENT_PARQUET}. Tổng số văn bản: {len(content_df)}")
 
+
 if __name__ == "__main__":
     find_and_fill_missing_content()
-

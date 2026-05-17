@@ -1,10 +1,10 @@
 # Chạy lần đầu
 
 python -m src.data_pipeline.full_ingest_neo4j
-
+python scripts/import_embeddings_to_neo4j.py
 python -m src.data_pipeline.legal_segment_index apply
 
-python scripts/import_embeddings_to_neo4j.py
+
 python -m src.cross_reference.ingest_llm_relations
 
 
