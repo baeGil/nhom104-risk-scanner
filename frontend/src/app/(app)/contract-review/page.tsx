@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSearchParams } from "next/navigation";
 import { WobblyButton } from "@/components/ui/wobbly-button";
 import { WobblyCard } from "@/components/ui/wobbly-card";
 import { WobblyBadge } from "@/components/ui/wobbly-badge";
@@ -59,7 +60,7 @@ interface LegalPoint {
 }
 
 import { contractApi } from "@/lib/api-contract";
-import type { CitationResult, LegalMatch } from "@/lib/api-contract";
+import type { CitationResult, ContractJob, LegalMatch } from "@/lib/api-contract";
 
 const analyzeSteps = [
   { label: "Đang tải lên tài liệu", threshold: 20 },
@@ -70,6 +71,7 @@ const analyzeSteps = [
 ];
 
 export default function ContractReviewPage() {
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>("upload");
   const [inputType, setInputType] = useState<InputType>("file");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -90,8 +92,10 @@ export default function ContractReviewPage() {
   const [expandedSuggestions, setExpandedSuggestions] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<LegalDocument | null>(null);
   const [documentLoading, setDocumentLoading] = useState(false);
-  const [jobHistory, setJobHistory] = useState<any[]>([]);
+  const [jobHistory, setJobHistory] = useState<ContractJob[]>([]);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [currentDocumentId, setCurrentDocumentId] = useState<string | null>(null);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -103,11 +107,16 @@ export default function ContractReviewPage() {
 
   useEffect(() => {
     loadJobHistory();
-    const savedJobId = localStorage.getItem("lastJobId");
-    if (savedJobId) {
-      loadJobResult(savedJobId);
-    }
   }, []);
+
+  useEffect(() => {
+    const requestedJobId = searchParams.get("jobId");
+    const savedJobId = localStorage.getItem("lastJobId");
+    const targetJobId = requestedJobId || savedJobId;
+    if (targetJobId) {
+      loadJobResult(targetJobId);
+    }
+  }, [searchParams]);
 
   const loadJobHistory = async () => {
     try {
@@ -118,25 +127,42 @@ export default function ContractReviewPage() {
     }
   };
 
+  const notifyContractHistoryChanged = () => {
+    window.dispatchEvent(new Event("contract-review:history-changed"));
+  };
+
   const loadJobResult = async (jobId: string) => {
     try {
       const status = await contractApi.getJobStatus(jobId);
       if (status.status === "completed") {
-        const apiClauses = status.clauses || [];
-        const apiCompliance = status.compliance;
-        setLegalMatches(status.matches || []);
-        setCitations(status.citations || apiCompliance?.citations || []);
-        setClauses(
-          apiClauses.map((c: any) => ({
-            id: c.id,
-            type: c.type,
-            text: c.text,
-            riskLevel: c.riskLevel as "low" | "medium" | "high",
-          }))
-        );
-        if (apiCompliance) {
-          setCompliance({
-            violations: apiCompliance.violations.map((v: any) => ({
+        await hydrateCompletedJob(status);
+      } else if (status.status === "failed") {
+        setSnapshotError(status.error || "Không thể tải kết quả rà soát trước đó.");
+        setViewMode("results");
+      }
+    } catch (err) {
+      console.error("Failed to load job result:", err);
+      setSnapshotError("Không thể tải kết quả rà soát đã lưu.");
+    }
+  };
+
+  const hydrateCompletedJob = async (status: ContractJob) => {
+    const apiClauses = status.clauses || [];
+    const apiCompliance = status.compliance;
+    setLegalMatches(status.matches || []);
+    setCitations(status.citations || apiCompliance?.citations || []);
+    setClauses(
+      apiClauses.map((c) => ({
+        id: c.id,
+        type: c.type,
+        text: c.text,
+        riskLevel: c.riskLevel,
+      }))
+    );
+    setCompliance(
+      apiCompliance
+        ? {
+            violations: apiCompliance.violations.map((v) => ({
               clause: v.clause,
               description: v.description,
               citation: v.citation,
@@ -146,20 +172,45 @@ export default function ContractReviewPage() {
             })),
             risks: apiCompliance.risks,
             suggestions: apiCompliance.suggestions,
-          });
-        }
-        setSourceName(status.filename || "");
-        setCurrentJobId(jobId);
-        localStorage.setItem("lastJobId", jobId);
-        setViewMode("results");
-      }
-    } catch (err) {
-      console.error("Failed to load job result:", err);
+          }
+        : null
+    );
+    const pdfPreviewUrl = await buildRestoredPreviewUrl(status);
+    setPreviewUrl((prev) => {
+      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return pdfPreviewUrl;
+    });
+    setTextContent(status.previewText || "");
+    setSourceName(status.filename || "");
+    setCurrentJobId(status.id);
+    setCurrentDocumentId(status.documentId || null);
+    setSnapshotError(null);
+    localStorage.setItem("lastJobId", status.id);
+    setViewMode("results");
+  };
+
+  const buildRestoredPreviewUrl = async (status: ContractJob): Promise<string | null> => {
+    if (!status.fileUrl) return null;
+    if (status.sourceFormat === "pdf") return status.fileUrl;
+
+    try {
+      const response = await fetch(status.fileUrl);
+      if (!response.ok) throw new Error(`Could not fetch stored file: ${response.status}`);
+
+      const blob = await response.blob();
+      const restoredFile = new File([blob], status.filename || "contract", {
+        type: blob.type || "application/octet-stream",
+      });
+      const pdfBlob = await fileToPdfBlob(restoredFile);
+      return URL.createObjectURL(pdfBlob);
+    } catch (error) {
+      console.error("Could not rebuild stored file preview:", error);
+      return null;
     }
   };
 
   const resetToUpload = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
     setSelectedFile(null);
     setPreviewUrl(null);
     setTextContent("");
@@ -175,6 +226,8 @@ export default function ContractReviewPage() {
     setExpandedSuggestions(false);
     setSelectedDocument(null);
     setCurrentJobId(null);
+    setCurrentDocumentId(null);
+    setSnapshotError(null);
     localStorage.removeItem("lastJobId");
   };
 
@@ -233,16 +286,23 @@ export default function ContractReviewPage() {
 
     try {
       let jobId: string;
+      let documentId: string | null = null;
 
       if (selectedFile) {
         const uploadResp = await contractApi.uploadContract(selectedFile);
         jobId = uploadResp.jobId;
+        documentId = uploadResp.documentId;
       } else {
         const blob = new Blob([textContent], { type: "text/markdown" });
         const file = new File([blob], "contract.md", { type: "text/markdown" });
         const uploadResp = await contractApi.uploadContract(file);
         jobId = uploadResp.jobId;
+        documentId = uploadResp.documentId;
       }
+
+      setCurrentJobId(jobId);
+      setCurrentDocumentId(documentId);
+      localStorage.setItem("lastJobId", jobId);
 
       const pollInterval = setInterval(async () => {
         try {
@@ -251,40 +311,9 @@ export default function ContractReviewPage() {
 
           if (status.status === "completed") {
             clearInterval(pollInterval);
-            const apiClauses = status.clauses || [];
-            const apiCompliance = status.compliance;
-            setLegalMatches(status.matches || []);
-            setCitations(status.citations || apiCompliance?.citations || []);
-
-            setClauses(
-              apiClauses.map((c: any) => ({
-                id: c.id,
-                type: c.type,
-                text: c.text,
-                riskLevel: c.riskLevel as "low" | "medium" | "high",
-              }))
-            );
-
-            if (apiCompliance) {
-              setCompliance({
-                violations: apiCompliance.violations.map((v: any) => ({
-                  clause: v.clause,
-                  description: v.description,
-                  citation: v.citation,
-                  verified: v.verified,
-                  contractClauseId: v.contractClauseId,
-                  contractClauseType: v.contractClauseType,
-                })),
-                risks: apiCompliance.risks,
-                suggestions: apiCompliance.suggestions,
-              });
-            }
-
-            setSourceName(status.filename || "");
-            setCurrentJobId(jobId);
-            localStorage.setItem("lastJobId", jobId);
+            await hydrateCompletedJob(status);
             loadJobHistory();
-            setViewMode("results");
+            notifyContractHistoryChanged();
           } else if (status.status === "failed") {
             clearInterval(pollInterval);
             alert(status.error || "Phân tích thất bại. Vui lòng thử lại.");
@@ -389,6 +418,20 @@ export default function ContractReviewPage() {
       alert("Lỗi khi tải nội dung văn bản");
     } finally {
       setDocumentLoading(false);
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: string) => {
+    try {
+      await contractApi.deleteDocument(documentId);
+      setJobHistory((prev) => prev.filter((job) => job.documentId !== documentId));
+      notifyContractHistoryChanged();
+      if (currentDocumentId === documentId) {
+        resetToUpload();
+      }
+    } catch (err) {
+      console.error("Failed to delete contract document:", err);
+      alert("Không thể xóa tài liệu lúc này.");
     }
   };
 
@@ -583,15 +626,26 @@ export default function ContractReviewPage() {
             ) : (
               jobHistory.map((job) => (
                 <div
-                  key={job.jobId}
+                  key={job.id}
                   className="flex items-center gap-3 p-3 border-2 border-fg/10 rounded-lg hover:border-secondary/50 transition-colors cursor-pointer"
-                  onClick={() => loadJobResult(job.jobId)}
+                  onClick={() => loadJobResult(job.id)}
                 >
                   <FileText className="w-5 h-5 text-fg/40 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="font-body text-sm text-fg truncate">{job.filename}</p>
                     <p className="font-body text-xs text-fg/40">{new Date(job.createdAt).toLocaleString("vi-VN")}</p>
                   </div>
+                  {job.documentId && (
+                    <button
+                      className="p-2 text-fg/40 hover:text-accent transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleDeleteDocument(job.documentId!);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                   <WobblyBadge variant={job.status === "completed" ? "secondary" : job.status === "failed" ? "accent" : "default"}>
                     {job.status === "completed" ? "Hoàn thành" : job.status === "failed" ? "Thất bại" : "Đang xử lý"}
                   </WobblyBadge>
@@ -647,6 +701,12 @@ export default function ContractReviewPage() {
               </div>
 
               <div className="flex-1 overflow-auto space-y-4 pr-2">
+                {snapshotError && (
+                  <div className="bg-yellow-50 border-2 border-yellow-300/60 p-3 font-body text-sm text-fg/80" style={{ borderRadius: "12px 4px 12px 4px" }}>
+                    {snapshotError}
+                  </div>
+                )}
+
                 {/* Violations / Risks Found */}
                 {compliance?.violations && compliance.violations.length > 0 && (
                   <div>

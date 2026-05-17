@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 class ChatRequest(BaseModel):
     message: str
     conversationId: Optional[str] = None
+    tabId: Optional[str] = None
 
 
 class IntentResult(BaseModel):
@@ -24,13 +25,26 @@ class Provision(BaseModel):
     articleNumber: str
     text: str
     verified: bool = False
+    citation: str = ""
 
 
 class ChatChunk(BaseModel):
     token: Optional[str] = None
+    conversationId: Optional[str] = None
     intents: Optional[list[IntentResult]] = None
     provisions: Optional[list[Provision]] = None
     done: Optional[bool] = None
+
+
+class ChatMessageResponse(BaseModel):
+    id: str
+    role: str
+    content: str
+    timestamp: str
+    intents: list[dict] = []
+    provisions: list[dict] = []
+    citations: list[dict] = []
+    tokenCount: int = 0
 
 
 class ConversationSummary(BaseModel):
@@ -38,16 +52,33 @@ class ConversationSummary(BaseModel):
     title: str
     lastMessage: str
     createdAt: str
+    lastMessageAt: Optional[str] = None
+    tabId: Optional[str] = None
 
 
 class CreateConversationRequest(BaseModel):
     title: str = "New conversation"
+    tabId: Optional[str] = None
+
+
+class RenameConversationRequest(BaseModel):
+    title: str
+
+
+class ConversationDetail(BaseModel):
+    id: str
+    title: str
+    createdAt: str
+    lastMessageAt: Optional[str] = None
+    messages: list[ChatMessageResponse]
 
 
 # ── Contract Schemas ────────────────────────────────────────────────────────
 
 class UploadResponse(BaseModel):
     jobId: str
+    documentId: str
+    versionId: str
 
 
 class ContractClauseResponse(BaseModel):
@@ -88,6 +119,7 @@ class ComplianceResultResponse(BaseModel):
     risks: list[str] = []
     suggestions: list[str] = []
     citations: list[CitationResponse] = []
+    clauseResults: list[dict] = []
 
 
 class JobStatusResponse(BaseModel):
@@ -96,6 +128,11 @@ class JobStatusResponse(BaseModel):
     progress: int = Field(ge=0, le=100)
     filename: str
     createdAt: str
+    documentId: Optional[str] = None
+    versionId: Optional[str] = None
+    fileUrl: Optional[str] = None
+    previewText: Optional[str] = None
+    sourceFormat: Optional[str] = None
     clauses: Optional[list[ContractClauseResponse]] = None
     matches: Optional[list[LegalMatchResponse]] = None
     compliance: Optional[ComplianceResultResponse] = None

@@ -67,6 +67,16 @@ export function ChatBubble({ message, isStreaming }: ChatBubbleProps) {
             ))}
           </div>
         )}
+
+        {!isUser && message.citations && message.citations.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {message.citations.map((citation, i) => (
+              <WobblyBadge key={`${citation.uid}-${i}`} variant={citation.verified ? "secondary" : "default"}>
+                {citation.verified ? "✓" : "?"} {citation.displayText}
+              </WobblyBadge>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

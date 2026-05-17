@@ -8,7 +8,7 @@ async function createBackendAccessToken(userId: string, email: string, role: str
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(userId)
     .setIssuedAt()
-    .setExpirationTime(15 * 60)
+    .setExpirationTime("15m")
     .sign(secret);
 }
 

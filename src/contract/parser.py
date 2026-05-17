@@ -29,6 +29,32 @@ from .pii import detect_pii, redact_pii
 
 SUPPORTED_FORMATS = {".pdf", ".docx", ".txt", ".md"}
 
+_VIETNAMESE_CHARS = set("ăâđêôơưĂÂĐÊÔƠƯáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ")
+_MOJIBAKE_MARKERS = ("Ã", "Ä", "Å", "Æ", "Ç", "È", "É", "Ê", "Ë", "Ð", "Ñ", "Ò", "Ó", "Ô", "Õ", "Ö", "×", "Ø", "Ù", "Ú", "á»", "áº", "Ä")
+
+
+def repair_mojibake_text(text: str) -> str:
+    """Repair common UTF-8-as-Latin-1 mojibake when the candidate is clearly better."""
+    if not text:
+        return text
+
+    candidates = [text]
+    for source_encoding in ("latin-1", "cp1252"):
+        try:
+            candidates.append(text.encode(source_encoding).decode("utf-8"))
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            continue
+
+    return max(candidates, key=_text_quality_score)
+
+
+def _text_quality_score(text: str) -> int:
+    score = 0
+    score += sum(3 for ch in text if ch in _VIETNAMESE_CHARS)
+    score -= sum(2 for marker in _MOJIBAKE_MARKERS for _ in range(text.count(marker)))
+    score -= text.count("\ufffd") * 5
+    return score
+
 
 class ContractParser:
     """
@@ -145,12 +171,13 @@ class ContractParser:
             ParseError: If reading fails
         """
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                return f.read()
-        except UnicodeDecodeError:
-            # Try latin-1 as fallback
-            with open(path, "r", encoding="latin-1") as f:
-                return f.read()
+            raw_bytes = path.read_bytes()
+            for encoding in ("utf-8", "utf-8-sig", "cp1258", "latin-1"):
+                try:
+                    return repair_mojibake_text(raw_bytes.decode(encoding))
+                except UnicodeDecodeError:
+                    continue
+            raise UnicodeDecodeError("unknown", raw_bytes, 0, 1, "Could not decode text file")
         except Exception as e:
             raise ParseError(
                 f"Failed to read TXT file: {str(e)}",
@@ -348,7 +375,7 @@ class ContractParser:
             txt_files = [f for f in os.listdir(output_dir) if f.endswith(".txt")]
             if txt_files:
                 with open(os.path.join(output_dir, txt_files[0]), "r", encoding="utf-8") as f:
-                    return f.read()
+                    return repair_mojibake_text(f.read())
             raise ParseError(
                 "No Markdown output found from MinerU",
                 file_path=str(path),
@@ -358,4 +385,4 @@ class ContractParser:
         # Read the first .md file
         md_path = os.path.join(output_dir, md_files[0])
         with open(md_path, "r", encoding="utf-8") as f:
-            return f.read()
+            return repair_mojibake_text(f.read())

@@ -1,9 +1,14 @@
 export interface ContractJob {
   id: string;
+  documentId?: string;
+  versionId?: string;
   filename: string;
   status: "uploading" | "parsing" | "extracting" | "retrieving" | "analyzing" | "verifying" | "completed" | "failed";
   progress: number;
   createdAt: string;
+  fileUrl?: string;
+  previewText?: string;
+  sourceFormat?: string;
   clauses?: ContractClause[];
   matches?: LegalMatch[];
   compliance?: ComplianceResult;
@@ -49,15 +54,20 @@ export interface ComplianceViolation {
   description: string;
   citation: string;
   verified: boolean;
+  contractClauseId?: string;
+  contractClauseType?: string;
 }
 
 const mockJobs: ContractJob[] = [
   {
     id: "job_001",
+    documentId: "doc_001",
+    versionId: "ver_001",
     filename: "Hợp đồng thuê VP.pdf",
     status: "completed",
     progress: 100,
     createdAt: "2026-05-08",
+    sourceFormat: "pdf",
     clauses: [
       { id: "c1", type: "Thanh toán", text: "Bên A thanh toán cho Bên B số tiền 50 triệu đồng/tháng", riskLevel: "low" },
       { id: "c2", type: "Phạt vi phạm", text: "Phạt 30% giá trị hợp đồng khi vi phạm", riskLevel: "high" },
@@ -91,10 +101,14 @@ const mockJobs: ContractJob[] = [
   },
   {
     id: "job_002",
+    documentId: "doc_002",
+    versionId: "ver_002",
     filename: "Hợp đồng lao động.docx",
     status: "completed",
     progress: 100,
     createdAt: "2026-05-07",
+    previewText: "Điều 1. Lương cơ bản 15 triệu đồng/tháng",
+    sourceFormat: "text",
     clauses: [
       { id: "c4", type: "Lương", text: "Lương cơ bản 15 triệu đồng/tháng", riskLevel: "low" },
     ],
@@ -106,10 +120,10 @@ const mockJobs: ContractJob[] = [
   },
 ];
 
-export async function uploadContract(file: File): Promise<{ jobId: string }> {
+export async function uploadContract(file: File): Promise<{ jobId: string; documentId: string; versionId: string }> {
   await new Promise((r) => setTimeout(r, 1000));
   const job = mockJobs[0];
-  return { jobId: job.id };
+  return { jobId: job.id, documentId: job.documentId || "doc_001", versionId: job.versionId || "ver_001" };
 }
 
 export async function getJobStatus(jobId: string): Promise<ContractJob> {
@@ -120,4 +134,12 @@ export async function getJobStatus(jobId: string): Promise<ContractJob> {
 export async function getJobHistory(): Promise<ContractJob[]> {
   await new Promise((r) => setTimeout(r, 300));
   return mockJobs;
+}
+
+export async function deleteDocument(documentId: string): Promise<void> {
+  await new Promise((r) => setTimeout(r, 150));
+  const index = mockJobs.findIndex((job) => job.documentId === documentId);
+  if (index >= 0) {
+    mockJobs.splice(index, 1);
+  }
 }

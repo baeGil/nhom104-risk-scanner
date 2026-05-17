@@ -4,6 +4,7 @@ export interface Message {
   content: string;
   intents?: IntentResult[];
   provisions?: Provision[];
+  citations?: Citation[];
   timestamp: string;
 }
 
@@ -17,6 +18,15 @@ export interface Provision {
   articleNumber: string;
   text: string;
   verified: boolean;
+  citation?: string;
+}
+
+export interface Citation {
+  displayText: string;
+  uid: string;
+  verified: boolean;
+  reason?: string;
+  documentTitle?: string;
 }
 
 export interface Conversation {
@@ -24,6 +34,9 @@ export interface Conversation {
   title: string;
   messages: Message[];
   createdAt: string;
+  lastMessage?: string;
+  lastMessageAt?: string | null;
+  tabId?: string | null;
 }
 
 const mockResponses: Record<string, Omit<Message, "id" | "timestamp">> = {
@@ -57,11 +70,22 @@ export function createConversation(): Conversation {
   };
 }
 
-export async function sendMessage(conversationId: string, content: string, onToken: (token: string) => void): Promise<Message> {
+export async function sendMessage(
+  conversationId: string | null,
+  tabId: string,
+  content: string,
+  onToken: (token: string) => void,
+  onConversationId?: (conversationId: string) => void,
+  onMetadata?: (metadata: { intents?: IntentResult[]; provisions?: Provision[] }) => void
+): Promise<{ conversationId: string; message: Message }> {
   await new Promise((r) => setTimeout(r, 500));
+
+  const convId = conversationId || `conv_${tabId}`;
+  onConversationId?.(convId);
 
   const response = mockResponses.default;
   const fullContent = response.content;
+  onMetadata?.({ intents: response.intents, provisions: response.provisions });
 
   // Simulate streaming
   const tokens = fullContent.split(" ");
@@ -71,17 +95,42 @@ export async function sendMessage(conversationId: string, content: string, onTok
   }
 
   return {
-    id: `msg_${Date.now()}`,
-    role: "assistant",
-    content: fullContent,
-    intents: response.intents,
-    provisions: response.provisions,
-    timestamp: new Date().toISOString(),
+    conversationId: convId,
+    message: {
+      id: `msg_${Date.now()}`,
+      role: "assistant",
+      content: fullContent,
+      intents: response.intents,
+      provisions: response.provisions,
+      timestamp: new Date().toISOString(),
+    },
   };
 }
 
 export function getConversations(): Conversation[] {
   return [];
+}
+
+export function getConversation(id: string): Conversation {
+  return {
+    id,
+    title: "Cuộc trò chuyện mới",
+    messages: [],
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export function getTabConversation(tabId: string): Conversation | null {
+  return null;
+}
+
+export function renameConversation(id: string, title: string): Conversation {
+  return {
+    id,
+    title,
+    messages: [],
+    createdAt: new Date().toISOString(),
+  };
 }
 
 export function deleteConversation(id: string): void {

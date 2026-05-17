@@ -24,6 +24,7 @@ def format_done() -> str:
 
 async def answer_stream(
     answer_text: str,
+    conversation_id: str | None = None,
     intents: list[dict] | None = None,
     provisions: list[dict] | None = None,
     chunk_size: int = 5,
@@ -35,6 +36,8 @@ async def answer_stream(
     """
     # Send first chunk with intents/provisions
     first_chunk = {"token": ""}
+    if conversation_id:
+        first_chunk["conversationId"] = conversation_id
     if intents:
         first_chunk["intents"] = intents
     if provisions:
