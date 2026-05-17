@@ -5,7 +5,7 @@ from typing import Optional
 from src.data_pipeline.normalize import normalize
 
 class ReferenceCache:
-    def __init__(self, lookup_path: str = "data/output/so_ky_hieu_lookup.json"):
+    def __init__(self, lookup_path: str = "data/so_ky_hieu_lookup.json"):
         self.lookup_path = lookup_path
         self.cache: dict[str, str] = {}
         self._load_cache()

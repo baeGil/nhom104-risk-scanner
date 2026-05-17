@@ -88,7 +88,7 @@ def run_unified_pipeline():
     logger.info(f"Số lượng văn bản tìm thấy trong Parquet metadata: {len(filtered_meta)}")
     
     # Load lookup table from JSON
-    lookup_path = "data/output/so_ky_hieu_lookup.json"
+    lookup_path = "data/so_ky_hieu_lookup.json"
     if not os.path.exists(lookup_path):
         logger.info("Không thấy bảng tra cứu JSON, đang tạo mới...")
         from src.data_pipeline.build_lookup_json import build

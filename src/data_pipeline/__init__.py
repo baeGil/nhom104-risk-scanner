@@ -12,7 +12,7 @@ Package structure:
   pipeline.py       T6.3  — Orchestration runner
 
 Interface outputs (cho Người B):
-  data/output/so_ky_hieu_lookup.json
+  data/so_ky_hieu_lookup.json
   output/neo4j_schema.cypher
   data/clean_html/   (parquet với cột clean_html)
 """

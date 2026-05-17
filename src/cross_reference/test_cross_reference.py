@@ -37,7 +37,7 @@ def run_unified_pipeline():
     logger.info(f"Tổng số văn bản sau khi lọc: {len(filtered_meta)}")
     
     # Load lookup table from JSON (Centralized for all scripts)
-    lookup_path = "data/output/so_ky_hieu_lookup.json"
+    lookup_path = "data/so_ky_hieu_lookup.json"
     if not os.path.exists(lookup_path):
         logger.info("Không thấy bảng tra cứu JSON, đang tạo mới...")
         from src.data_pipeline.build_lookup_json import build
