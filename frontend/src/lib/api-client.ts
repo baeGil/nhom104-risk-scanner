@@ -16,14 +16,59 @@ const defaultConfig: ApiConfig = {
   retries: 2,
 };
 
-async function getAuthToken(): Promise<string | null> {
+export async function getAuthToken(): Promise<string | null> {
   try {
-    const res = await fetch("/api/auth/session");
+    const res = await fetch("/api/auth/backend-token", { cache: "no-store" });
     if (!res.ok) return null;
-    const session = await res.json();
-    return session?.accessToken || null;
+    const body = await res.json();
+    return body?.accessToken || null;
   } catch {
     return null;
+  }
+}
+
+export async function apiUpload<T>(
+  endpoint: string,
+  body: FormData,
+  config: Partial<ApiConfig> = {}
+): Promise<T> {
+  const { baseUrl, timeout } = { ...defaultConfig, ...config };
+  const url = `${baseUrl}${endpoint}`;
+  const token = await getAuthToken();
+
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      body,
+      signal: controller.signal,
+      headers,
+    });
+
+    if (response.status === 401) {
+      window.location.href = "/login?callbackUrl=" + encodeURIComponent(window.location.pathname);
+      throw { message: "Unauthorized", status: 401 } as ApiError;
+    }
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw {
+        message: errorBody?.detail || errorBody?.message || response.statusText,
+        status: response.status,
+        code: errorBody?.code,
+      } as ApiError;
+    }
+
+    return await response.json();
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

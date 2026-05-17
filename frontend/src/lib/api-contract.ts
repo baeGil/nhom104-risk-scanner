@@ -1,15 +1,22 @@
-import { apiRequest } from "./api-client";
+import { apiRequest, apiUpload } from "./api-client";
 
 export interface UploadResponse {
   jobId: string;
+  documentId: string;
+  versionId: string;
 }
 
 export interface ContractJob {
   id: string;
+  documentId?: string;
+  versionId?: string;
   filename: string;
   status: "uploading" | "parsing" | "extracting" | "retrieving" | "analyzing" | "verifying" | "completed" | "failed";
   progress: number;
   createdAt: string;
+  fileUrl?: string;
+  previewText?: string;
+  sourceFormat?: string;
   clauses?: ContractClause[];
   matches?: LegalMatch[];
   compliance?: ComplianceResult;
@@ -55,6 +62,8 @@ export interface ComplianceViolation {
   description: string;
   citation: string;
   verified: boolean;
+  contractClauseId?: string;
+  contractClauseType?: string;
 }
 
 export interface JobStatusResponse {
@@ -63,6 +72,11 @@ export interface JobStatusResponse {
   progress: number;
   filename: string;
   createdAt: string;
+  documentId?: string;
+  versionId?: string;
+  fileUrl?: string;
+  previewText?: string;
+  sourceFormat?: string;
   clauses?: ContractClause[];
   matches?: LegalMatch[];
   compliance?: ComplianceResult;
@@ -70,32 +84,10 @@ export interface JobStatusResponse {
   error?: string;
 }
 
-export async function uploadContract(file: File): Promise<{ jobId: string }> {
+export async function uploadContract(file: File): Promise<UploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for uploads
-
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/contracts/upload`, {
-      method: "POST",
-      body: formData,
-      signal: controller.signal,
-      headers: {
-        // Don't set Content-Type — browser sets it with boundary for FormData
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: "Upload failed" }));
-      throw new Error(error.detail || `Upload failed: ${response.status}`);
-    }
-
-    return response.json();
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  return apiUpload<UploadResponse>("/api/contracts/upload", formData, { timeout: 60000 });
 }
 
 export async function getJobStatus(jobId: string): Promise<ContractJob> {
@@ -103,10 +95,15 @@ export async function getJobStatus(jobId: string): Promise<ContractJob> {
 
   return {
     id: status.jobId,
+    documentId: status.documentId,
+    versionId: status.versionId,
     filename: status.filename,
     status: status.status,
     progress: status.progress,
     createdAt: status.createdAt,
+    fileUrl: status.fileUrl,
+    previewText: status.previewText,
+    sourceFormat: status.sourceFormat,
     clauses: status.clauses,
     matches: status.matches,
     compliance: status.compliance,
@@ -120,10 +117,15 @@ export async function getJobHistory(): Promise<ContractJob[]> {
 
   return jobs.map((job) => ({
     id: job.jobId,
+    documentId: job.documentId,
+    versionId: job.versionId,
     filename: job.filename,
     status: job.status,
     progress: job.progress,
     createdAt: job.createdAt,
+    fileUrl: job.fileUrl,
+    previewText: job.previewText,
+    sourceFormat: job.sourceFormat,
     clauses: job.clauses,
     matches: job.matches,
     compliance: job.compliance,
@@ -132,8 +134,13 @@ export async function getJobHistory(): Promise<ContractJob[]> {
   }));
 }
 
+export async function deleteDocument(documentId: string): Promise<void> {
+  await apiRequest(`/api/contracts/documents/${documentId}`, { method: "DELETE" });
+}
+
 export const contractApi = {
   uploadContract,
   getJobStatus,
   getJobHistory,
+  deleteDocument,
 };

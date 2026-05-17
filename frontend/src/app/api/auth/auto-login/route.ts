@@ -44,7 +44,7 @@ async function createSessionToken(userId: string, email: string, name: string, r
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(userId)
     .setIssuedAt()
-    .setExpirationTime(15 * 60) // 15 minutes (matches session maxAge)
+    .setExpirationTime("15m") // 15 minutes (matches session maxAge)
     .sign(secret);
 }
 

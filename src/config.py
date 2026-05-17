@@ -42,6 +42,7 @@ from dotenv import load_dotenv
 _project_root = Path(__file__).resolve().parent.parent
 _env_path = _project_root / ".env"
 load_dotenv(_env_path, override=True)
+load_dotenv(_project_root / "frontend" / ".env.local", override=False)
 
 
 # ── Helper ───────────────────────────────────────────────────────────────────
