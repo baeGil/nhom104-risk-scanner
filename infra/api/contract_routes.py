@@ -349,14 +349,14 @@ def serialize_review_result(result) -> dict[str, Any]:
             matches.append(
                 {
                     "clauseId": item.clause.id,
-                    "uid": match.segment_uid or match.article_uid,
+                    "uid": match.uid,
                     "citation": match.display_citation,
                     "documentTitle": match.document_title,
                     "segmentType": match.segment_type,
-                    "text": repair_mojibake_text(match.effective_text or match.article_text or ""),
+                    "text": repair_mojibake_text(match.effective_text or match.text or ""),
                     "score": display_match_score(match),
-                    "rankingScore": match.combined_score,
-                    "validitySignal": match.validity_signal,
+                    "rankingScore": match.score,
+                    "validitySignal": match.validity.status,
                     "scoreFactors": match.score_factors,
                 }
             )
@@ -415,7 +415,7 @@ def display_match_score(match) -> float:
 
     base_relevance = max(factor("vector"), factor("lexical")) + factor("exact") + factor("title")
     if base_relevance <= 0:
-        base_relevance = float(getattr(match, "semantic_score", 0.0) or 0.0)
+        base_relevance = float(getattr(match, "score", 0.0) or 0.0)
     return max(0.0, min(1.0, base_relevance))
 
 

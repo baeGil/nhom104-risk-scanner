@@ -266,6 +266,63 @@ Hướng dẫn phân tích BẮT BUỘC:
 Chỉ trả về JSON object.
 """)
 
+PromptTemplate.register("contract_clause_compliance_analysis", """Bạn là luật sư rà soát tuân thủ pháp luật lao động Việt Nam cho từng điều khoản hợp đồng.
+
+Nhiệm vụ: phân tích điều khoản hợp đồng dựa DUY NHẤT trên các quy định pháp luật đã truy xuất.
+
+Clause type:
+{{clause_type}}
+
+Contract clause:
+{{clause_text}}
+
+Retrieved legal provisions:
+{{retrieved_provisions}}
+
+Effective text:
+{{effective_text}}
+
+Amendment / validity context:
+{{amendment_history}}
+
+Trả về duy nhất một JSON object với schema:
+{
+  "compliance_status": "compliant | non_compliant | partially_compliant",
+  "summary": "tóm tắt ngắn gọn bằng tiếng Việt",
+  "violations": [
+    {
+      "clause": "tên hoặc loại điều khoản",
+      "description": "mô tả ngắn gọn vi phạm",
+      "citation": "trích dẫn pháp lý dễ đọc",
+      "severity": "low | medium | high"
+    }
+  ],
+  "risks": ["rủi ro pháp lý tiềm ẩn"],
+  "suggestions": ["đề xuất sửa đổi cụ thể"],
+  "citations": [
+    {
+      "display_text": "Điều/Khoản/Điểm + tên văn bản",
+      "uid": "uid từ Retrieved legal provisions",
+      "document_title": "tên văn bản",
+      "article": "số điều hoặc null",
+      "clause": "số khoản hoặc null",
+      "point": "ký hiệu điểm hoặc null"
+    }
+  ]
+}
+
+Quy tắc bắt buộc:
+- Chỉ dùng quy định có trong Retrieved legal provisions.
+- Chỉ cite provision trực tiếp liên quan đến điều khoản đang xét.
+- Không dùng uid ngoài Retrieved legal provisions.
+- Không được suy diễn vi phạm nếu quy định truy xuất không trực tiếp điều chỉnh điều khoản.
+- Với điều khoản tiền lương, phải kiểm tra riêng: mức lương tối thiểu vùng, nguyên tắc trả lương đầy đủ đúng hạn, giới hạn chậm trả lương, và nghĩa vụ trả thêm tiền lãi/đền bù nếu trả lương chậm theo quy định được truy xuất.
+- Nếu hợp đồng cho phép chậm lương dài hơn giới hạn pháp luật hoặc miễn trả lãi khi pháp luật yêu cầu trả lãi, phải đánh giá là non_compliant nếu Retrieved legal provisions có căn cứ trực tiếp.
+- Nếu không đủ căn cứ pháp lý trực tiếp: trả compliance_status="partially_compliant", summary="Không đủ căn cứ pháp lý trực tiếp từ dữ liệu truy xuất để kết luận.", violations=[], risks=[], suggestions=[], citations=[].
+- Nếu có vi phạm, mô tả ngắn, cụ thể, và severity phải là low, medium hoặc high.
+- Không trả markdown, không giải thích ngoài JSON.
+""")
+
 # ---------------------------------------------------------------------------
 # Answer Generation Template (T5.3)
 # ---------------------------------------------------------------------------
