@@ -157,9 +157,8 @@ export default function LegalQAPage() {
               </p>
               <div className="mt-6 flex flex-wrap gap-2 justify-center">
                 {[
-                  "Điều 17 Luật Doanh nghiệp quy định gì?",
-                  "Luật DN 2020 còn hiệu lực không?",
-                  "Thủ tục đăng ký doanh nghiệp cần những gì?",
+                  "Lương tối thiểu vùng I",
+                  "Nội dung điều 1 bộ luật Lao động",
                 ].map((q) => (
                   <button
                     key={q}

@@ -133,7 +133,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <div
             key={job.id}
             className="border-2 border-fg/20 bg-white p-2"
-            style={{ borderRadius: "8px" }}
+            style={{ borderRadius: "30px 4px 25px 4px / 4px 25px 4px 30px" }}
           >
             <div className="flex items-start gap-2">
               <Link
@@ -174,7 +174,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <div
             key={conv.id}
             className="border-2 border-fg/20 bg-white p-2"
-            style={{ borderRadius: "8px" }}
+            style={{ borderRadius: "30px 4px 25px 4px / 4px 25px 4px 30px" }}
           >
             {editingId === conv.id ? (
               <div className="flex items-center gap-1">
