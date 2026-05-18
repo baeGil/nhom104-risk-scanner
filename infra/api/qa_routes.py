@@ -20,6 +20,7 @@ from infra.api.models import (
 )
 from infra.api.sse import format_done, format_sse
 from src.auth import CurrentUser, get_current_user
+from src.config import OPENAI_BASE_URL, OPENAI_TIMEOUT_SECONDS
 from src.llm.answer_generator import QAAnswerGenerator
 from src.llm.citation_verifier import CitationVerifier
 from src.llm.intent import IntentAnalyzer
@@ -173,7 +174,12 @@ async def _generate_title(question: str, answer: str) -> tuple[str, str]:
     if not api_key:
         return _fallback_title(question), "fallback"
     try:
-        client = AsyncOpenAI(api_key=api_key)
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=OPENAI_BASE_URL or "https://api.openai.com/v1",
+            timeout=OPENAI_TIMEOUT_SECONDS,
+            max_retries=0,
+        )
         response = await client.chat.completions.create(
             model=os.getenv("OPENAI_TITLE_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini")),
             messages=[

@@ -15,6 +15,7 @@ from abc import ABC, abstractmethod
 from typing import Any, AsyncIterator, Optional
 
 from src.env_utils import load_project_env
+from src.config import OPENAI_BASE_URL, OPENAI_MAX_RETRIES, OPENAI_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -96,8 +97,13 @@ class OpenAIClient(LLMClient):
         """Lazy initialize client."""
         if self._client is None:
             from openai import AsyncOpenAI
-            base_url = os.getenv("OPENAI_BASE_URL", "") or "https://api.openai.com/v1"
-            self._client = AsyncOpenAI(api_key=self._api_key, base_url=base_url)
+            base_url = OPENAI_BASE_URL or "https://api.openai.com/v1"
+            self._client = AsyncOpenAI(
+                api_key=self._api_key,
+                base_url=base_url,
+                timeout=OPENAI_TIMEOUT_SECONDS,
+                max_retries=0,
+            )
         return self._client
 
     async def chat(
@@ -116,7 +122,8 @@ class OpenAIClient(LLMClient):
         }
 
         last_error = None
-        for attempt in range(MAX_RETRIES):
+        retries = max(1, OPENAI_MAX_RETRIES)
+        for attempt in range(retries):
             try:
                 logger.info(
                     "LLM request start model=%s prompt_chars=%d schema=%s temperature=%.2f attempt=%d",
@@ -149,12 +156,12 @@ class OpenAIClient(LLMClient):
                 error_str = str(e).lower()
                 is_retryable = any(err in error_str for err in RETRYABLE_ERRORS)
 
-                if not is_retryable or attempt == MAX_RETRIES - 1:
+                if not is_retryable or attempt == retries - 1:
                     logger.error(f"LLM call failed after {attempt + 1} attempts: {e}")
                     raise
 
                 delay = RETRY_BASE_DELAY * (RETRY_BACKOFF ** attempt)
-                logger.warning(f"LLM call failed (attempt {attempt + 1}/{MAX_RETRIES}), retrying in {delay}s: {e}")
+                logger.warning(f"LLM call failed (attempt {attempt + 1}/{retries}), retrying in {delay}s: {e}")
                 await asyncio.sleep(delay)
 
         raise last_error  # Should never reach here
@@ -176,7 +183,8 @@ class OpenAIClient(LLMClient):
         }
 
         last_error = None
-        for attempt in range(MAX_RETRIES):
+        retries = max(1, OPENAI_MAX_RETRIES)
+        for attempt in range(retries):
             emitted_any = False
             try:
                 logger.info(
@@ -203,12 +211,12 @@ class OpenAIClient(LLMClient):
                 last_error = e
                 error_str = str(e).lower()
                 is_retryable = any(err in error_str for err in RETRYABLE_ERRORS)
-                if emitted_any or not is_retryable or attempt == MAX_RETRIES - 1:
+                if emitted_any or not is_retryable or attempt == retries - 1:
                     logger.error("LLM stream failed after %d attempts: %s", attempt + 1, e)
                     raise
 
                 delay = RETRY_BASE_DELAY * (RETRY_BACKOFF ** attempt)
-                logger.warning("LLM stream failed (attempt %d/%d), retrying in %ss: %s", attempt + 1, MAX_RETRIES, delay, e)
+                logger.warning("LLM stream failed (attempt %d/%d), retrying in %ss: %s", attempt + 1, retries, delay, e)
                 await asyncio.sleep(delay)
 
         raise last_error  # Should never reach here

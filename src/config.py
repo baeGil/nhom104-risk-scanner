@@ -91,6 +91,8 @@ LLM_PROVIDER: str = _env("LLM_PROVIDER", "openai")
 OPENAI_API_KEY: str = _env("OPENAI_API_KEY", "")
 OPENAI_MODEL: str = _env("OPENAI_MODEL", "gpt-5.4-mini")
 OPENAI_BASE_URL: Optional[str] = _env("OPENAI_BASE_URL", "") or None
+OPENAI_TIMEOUT_SECONDS: int = _env_int("OPENAI_TIMEOUT_SECONDS", 180)
+OPENAI_MAX_RETRIES: int = _env_int("OPENAI_MAX_RETRIES", 3)
 
 # Intent analysis thresholds
 INTENT_CONFIDENCE_THRESHOLD: float = _env_float("INTENT_CONFIDENCE_THRESHOLD", 0.7)
