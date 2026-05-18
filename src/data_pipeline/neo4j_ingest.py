@@ -35,15 +35,13 @@ import os
 from pathlib import Path
 from typing import Optional
 
+from src.config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Neo4j credentials (from environment variables, with fallback to defaults)
 # ---------------------------------------------------------------------------
-
-NEO4J_URI      = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
-NEO4J_USER     = os.getenv("NEO4J_USER",     "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 
 # ---------------------------------------------------------------------------
 # Relationship type mapping

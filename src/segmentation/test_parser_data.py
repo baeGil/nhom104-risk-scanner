@@ -6,6 +6,7 @@ from src.segmentation.confidence import ConfidenceScorer
 from src.segmentation.writer import SegmentWriter
 from src.segmentation.embedder import ArticleEmbedder
 from neo4j import GraphDatabase
+from src.config import EMBED_SERVICE_URL, NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
 
 def test_parser_with_real_data():
     # 1. Đọc dữ liệu từ file Parquet
@@ -104,11 +105,6 @@ def test_parser_with_real_data():
     # 7. Test Writer và Embedder
     print("\n" + "=" * 60)
     print("Bắt đầu test SegmentWriter và ArticleEmbedder...")
-    NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-    NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-    NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "password")
-    EMBED_URL = os.environ.get("EMBED_SERVICE_URL", "http://localhost:8001")
-    
     try:
         driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
         
@@ -125,7 +121,7 @@ def test_parser_with_real_data():
         
         # 7.3 Test Embedder
         print("Đang tạo Embedding (1024-dim)...")
-        embedder = ArticleEmbedder(driver, embed_service_url=EMBED_URL)
+        embedder = ArticleEmbedder(driver, embed_service_url=EMBED_SERVICE_URL)
         embed_stats = embedder.embed_all(overwrite=True)
         print(f"  -> Kết quả Embedder: {embed_stats}")
         
@@ -133,7 +129,7 @@ def test_parser_with_real_data():
         print("Test Writer và Embedder thành công!")
     except Exception as e:
         print(f"Lỗi khi chạy Writer hoặc Embedder: {e}")
-        print("Hãy đảm bảo bạn đang chạy Neo4j ở cổng 7687 và Embedding Service ở cổng 8001.")
+        print("Hãy đảm bảo Neo4j và Embedding Service đã được cấu hình đúng trong .env.")
 
 if __name__ == "__main__":
     test_parser_with_real_data()

@@ -2,9 +2,9 @@ import os
 import logging
 from typing import List, Dict, Any, Optional
 from neo4j import GraphDatabase
-from dotenv import load_dotenv
+from src.env_utils import load_project_env
 
-load_dotenv()
+load_project_env()
 
 logger = logging.getLogger(__name__)
 

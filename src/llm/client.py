@@ -12,14 +12,13 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Any, AsyncIterator, Optional
 
-from dotenv import load_dotenv
+from src.env_utils import load_project_env
 
 logger = logging.getLogger(__name__)
 
-load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
+load_project_env()
 
 # Retry configuration
 MAX_RETRIES = 3

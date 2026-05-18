@@ -66,7 +66,7 @@ class ArticleEmbedder:
         neo4j_batch_size: int = NEO4J_BATCH_SIZE,
     ) -> None:
         self._driver = driver
-        self._url = embed_service_url or os.getenv("EMBED_SERVICE_URL", "http://localhost:8001")
+        self._url = (embed_service_url or os.getenv("EMBED_SERVICE_URL", "http://localhost:8001")).rstrip("/")
         self._embed_batch = embed_batch_size
         self._neo4j_batch = neo4j_batch_size
 

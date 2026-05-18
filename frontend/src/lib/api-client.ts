@@ -16,6 +16,11 @@ const defaultConfig: ApiConfig = {
   retries: 2,
 };
 
+function joinApiUrl(baseUrl: string, endpoint: string): string {
+  const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  return new URL(endpoint, normalizedBaseUrl).toString();
+}
+
 export async function getAuthToken(): Promise<string | null> {
   try {
     const res = await fetch("/api/auth/backend-token", { cache: "no-store" });
@@ -33,7 +38,7 @@ export async function apiUpload<T>(
   config: Partial<ApiConfig> = {}
 ): Promise<T> {
   const { baseUrl, timeout } = { ...defaultConfig, ...config };
-  const url = `${baseUrl}${endpoint}`;
+  const url = joinApiUrl(baseUrl, endpoint);
   const token = await getAuthToken();
 
   const headers: Record<string, string> = {};
@@ -78,7 +83,7 @@ export async function apiRequest<T>(
   config: Partial<ApiConfig> = {}
 ): Promise<T> {
   const { baseUrl, timeout, retries } = { ...defaultConfig, ...config };
-  const url = `${baseUrl}${endpoint}`;
+  const url = joinApiUrl(baseUrl, endpoint);
 
   const token = await getAuthToken();
   const authHeaders: Record<string, string> = {};
@@ -147,7 +152,7 @@ export async function apiSSE<T>(
   config: Partial<ApiConfig> = {}
 ): Promise<void> {
   const { baseUrl } = { ...defaultConfig, ...config };
-  const url = `${baseUrl}${endpoint}`;
+  const url = joinApiUrl(baseUrl, endpoint);
 
   const token = await getAuthToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };

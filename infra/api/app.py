@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from infra.api.middleware import error_handler_middleware
 from infra.api.qa_routes import router as qa_router
 from infra.api.contract_routes import router as contract_router
+from src.config import BACKEND_CORS_ORIGINS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

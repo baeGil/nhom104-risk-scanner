@@ -3,16 +3,12 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Optional
 
 import requests
-from dotenv import load_dotenv
+from src.env_utils import load_project_env
 
-
-_ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(_ROOT / ".env", override=False)
-load_dotenv(_ROOT / "frontend" / ".env.local", override=False)
+load_project_env()
 
 
 class ChatStoreError(RuntimeError):

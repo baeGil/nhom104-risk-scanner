@@ -1,3 +1,12 @@
+---
+title: Vietnamese Legal Knowledge Graph API
+emoji: 🐳
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+---
+
 # Chạy lần đầu
 
 python -m src.data_pipeline.full_ingest_neo4j
@@ -18,4 +27,3 @@ python -m uvicorn infra.embedding_service.app:app --host 0.0.0.0 --port 8080
 cd frontend  
 npm install #nếu chạy lần đầu  
 npm run dev
-

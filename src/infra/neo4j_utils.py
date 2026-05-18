@@ -1,12 +1,13 @@
 import os
 from neo4j import GraphDatabase
 from loguru import logger
+from src.config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
 
 class Neo4jSanitizer:
     def __init__(self, uri=None, user=None, password=None):
-        self.uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        self.user = user or os.getenv("NEO4J_USER", "neo4j")
-        self.password = password or os.getenv("NEO4J_PASSWORD", "password")
+        self.uri = uri or NEO4J_URI
+        self.user = user or NEO4J_USER
+        self.password = password or NEO4J_PASSWORD
         self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
 
     def clear_all(self):

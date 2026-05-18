@@ -9,6 +9,8 @@ from typing import Iterator
 
 from neo4j import GraphDatabase
 
+from src.config import EMBED_SERVICE_URL, NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
+
 from .models import ParseResult
 from .parser import LegalDocumentParser
 from .confidence import ConfidenceScorer
@@ -22,10 +24,10 @@ class SegmentationPipeline:
         self,
         metadata_path: str,
         content_path: str,
-        neo4j_uri: str = "bolt://localhost:7687",
-        neo4j_user: str = "neo4j",
-        neo4j_password: str = "password",
-        embed_service_url: str = "http://localhost:8001"
+        neo4j_uri: str = NEO4J_URI,
+        neo4j_user: str = NEO4J_USER,
+        neo4j_password: str = NEO4J_PASSWORD,
+        embed_service_url: str = EMBED_SERVICE_URL,
     ):
         self.metadata_path = metadata_path
         self.content_path = content_path

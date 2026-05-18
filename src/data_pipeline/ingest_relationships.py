@@ -3,16 +3,13 @@ import glob
 import logging
 import pandas as pd
 from neo4j import GraphDatabase
+from src.config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s — %(message)s")
 logger = logging.getLogger(__name__)
 
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASS = os.getenv("NEO4J_PASSWORD", "password")
-
 def run_ingest_relationships():
-    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASS))
+    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
     
     internal_files = glob.glob("data/relationships/internal_refs_part_*.parquet")
     external_files = glob.glob("data/relationships/external_refs_part_*.parquet")

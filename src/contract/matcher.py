@@ -20,6 +20,7 @@ from typing import Any, Optional
 from neo4j import GraphDatabase
 
 from src.config import (
+    NEO4J_DATABASE,
     NEO4J_URI,
     NEO4J_TIMEOUT,
     neo4j_auth,
@@ -219,7 +220,7 @@ class LegalMatcher:
         RETURN article, doc, score
         ORDER BY score DESC
         """
-        with self._driver.session(default_access_mode="READ", database="neo4j") as session:
+        with self._driver.session(default_access_mode="READ", database=NEO4J_DATABASE or None) as session:
             result = session.run(cypher, vector=query_vector, top_k=self._top_k, config={"maxTransactionRetryTime": NEO4J_TIMEOUT * 1000})
             provisions = []
             for record in result:
@@ -250,7 +251,7 @@ class LegalMatcher:
         RETURN article, doc, score
         ORDER BY score DESC
         """
-        with self._driver.session(default_access_mode="READ", database="neo4j") as session:
+        with self._driver.session(default_access_mode="READ", database=NEO4J_DATABASE or None) as session:
             result = session.run(cypher, text=text, top_k=self._top_k, config={"maxTransactionRetryTime": NEO4J_TIMEOUT * 1000})
             provisions = []
             for record in result:

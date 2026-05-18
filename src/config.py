@@ -32,17 +32,11 @@ Usage
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Optional
 
-from dotenv import load_dotenv
+from src.env_utils import load_project_env
 
-# ── Load .env file ───────────────────────────────────────────────────────────
-# Looks for .env in project root (one level up from this file)
-_project_root = Path(__file__).resolve().parent.parent
-_env_path = _project_root / ".env"
-load_dotenv(_env_path, override=True)
-load_dotenv(_project_root / "frontend" / ".env.local", override=False)
+load_project_env()
 
 
 # ── Helper ───────────────────────────────────────────────────────────────────
@@ -78,9 +72,10 @@ def _env_bool(key: str, default: bool = False) -> bool:
 # Neo4j
 # =============================================================================
 
-NEO4J_URI: str = _env("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_URI: str = _env("NEO4J_URI", "")
 NEO4J_USER: str = _env("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD: str = _env("NEO4J_PASSWORD", "password")
+NEO4J_DATABASE: str = _env("NEO4J_DATABASE", "")
 NEO4J_TIMEOUT: int = _env_int("NEO4J_TIMEOUT", 30)  # seconds
 
 # Neo4j memory config (for docker-compose / self-hosted)
@@ -191,6 +186,19 @@ EFFECTIVE_TEXT_SERVICE_MODE: str = _env("EFFECTIVE_TEXT_SERVICE_MODE", "mock")  
 # =============================================================================
 
 AUTH_SECRET: str = _env("AUTH_SECRET", "")
+
+# =============================================================================
+# API / CORS
+# =============================================================================
+
+BACKEND_CORS_ORIGINS: list[str] = [
+    origin.strip()
+    for origin in _env(
+        "BACKEND_CORS_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000",
+    ).split(",")
+    if origin.strip()
+]
 
 
 # =============================================================================

@@ -1,10 +1,10 @@
 import os
 import logging
 import pandas as pd
-from dotenv import load_dotenv
 from src.embeddings.retriever import EmbeddingRetriever
+from src.env_utils import load_project_env
 
-load_dotenv()
+load_project_env()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s — %(message)s")
 logger = logging.getLogger(__name__)
