@@ -59,3 +59,14 @@ app.include_router(contract_router, prefix="/api/contracts", tags=["contracts"])
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok", "service": "vietnamese-legal-api"}
+
+
+@app.get("/")
+async def root():
+    """Basic landing endpoint to avoid 404s on the Space root."""
+    return {
+        "status": "ok",
+        "service": "vietnamese-legal-api",
+        "docs": "/docs",
+        "health": "/health",
+    }
